@@ -1,5 +1,12 @@
 # Welcome to your Expo app 👋
 
+## Tap Track API
+
+Set `EXPO_PUBLIC_API_URL` in `.env` to the Laravel server URL, for example
+`http://192.168.1.10:8000/api`. The Android device and development computer
+must share a network. The driver app communicates only with Laravel; it never
+connects directly to MySQL.
+
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
 ## Get started
