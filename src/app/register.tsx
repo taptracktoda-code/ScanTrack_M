@@ -102,7 +102,7 @@ export default function RegisterScreen() {
           <Pressable onPress={handleRegister} disabled={submitting} style={({ pressed }) => [styles.button, pressed && styles.pressed, submitting && styles.disabled]}>
             <ThemedText style={styles.buttonText}>{submitting ? 'Creating account...' : 'Create account'}</ThemedText>
           </Pressable>
-          <ThemedText style={styles.note}>Your driver ID, vehicle assignment, and NFC card are managed by the terminal administrator.</ThemedText>
+          <ThemedText style={styles.note}>Your driver ID, vehicle assignment, and QR code are managed by the terminal administrator.</ThemedText>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

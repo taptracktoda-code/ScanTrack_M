@@ -3,7 +3,8 @@ import { Redirect } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
 export default function Index() {
-  const { isLoading, isSignedIn } = useAuth();
+  const { isLoading, isSignedIn, role } = useAuth();
   if (isLoading) return <View style={{ flex: 1, justifyContent: 'center' }}><ActivityIndicator color="#208AEF" size="large" /></View>;
-  return <Redirect href={isSignedIn ? '/(tabs)' : '/login'} />;
+  if (!isSignedIn) return <Redirect href="/login" />;
+  return <Redirect href={role === 'admin' ? '/admin/dashboard' : '/(tabs)'} />;
 }

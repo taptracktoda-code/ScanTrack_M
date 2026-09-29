@@ -1,8 +1,28 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios, { AxiosInstance } from 'axios';
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || '';
+const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+const adminLoginEndpoint = process.env.EXPO_PUBLIC_ADMIN_LOGIN_ENDPOINT?.trim() || '/admin/login';
+const adminDashboardEndpoint = process.env.EXPO_PUBLIC_ADMIN_DASHBOARD_ENDPOINT?.trim();
+const adminTransactionsEndpoint = process.env.EXPO_PUBLIC_ADMIN_TRANSACTIONS_ENDPOINT?.trim() || '/admin/transactions';
+
+function getDevelopmentApiUrl() {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (!hostUri) return '';
+
+  try {
+    const host = new URL(`http://${hostUri}`).hostname;
+    return `http://${host}:8000/api`;
+  } catch {
+    return '';
+  }
+}
+
+export const API_BASE_URL = configuredApiUrl || getDevelopmentApiUrl();
 export const REGISTER_ENDPOINT = process.env.EXPO_PUBLIC_REGISTER_ENDPOINT || '/register';
+const LOCAL_ADMIN_HISTORY_KEY = 'tapTrack.adminHistory';
 
 class ApiService {
   private axiosInstance: AxiosInstance;
@@ -13,6 +33,10 @@ class ApiService {
   }
 
   constructor() {
+    if (!API_BASE_URL) {
+      throw new Error('API URL is not configured. Set EXPO_PUBLIC_API_URL in .env.');
+    }
+
     this.axiosInstance = axios.create({
       baseURL: API_BASE_URL,
       timeout: 10000,
@@ -43,7 +67,7 @@ class ApiService {
         return response;
       },
       (error) => {
-        console.error('[API] error', error.response?.status || 'network', error.config?.url || 'unknown', error.message);
+        console.error('[API] error', error.response?.status || 'network', error.config?.url || API_BASE_URL, error.message);
         const message = error.response?.data?.message;
         if (message) error.message = message;
         return Promise.reject(error);
@@ -75,12 +99,47 @@ class ApiService {
   }
 
   // ==================== Auth ====================
-  async login(email: string, password: string) {
-    const response = await this.axiosInstance.post('/login', {
-      email,
-      password,
-    });
-    return response.data;
+  async login(email: string, password: string, role?: 'admin' | 'driver') {
+    const endpoint = role === 'admin' && adminLoginEndpoint ? adminLoginEndpoint : '/login';
+    try {
+      const response = await this.axiosInstance.post(endpoint, { email, password });
+      return response.data;
+    } catch (error: any) {
+      if (role === 'admin' && endpoint !== '/login' && error.response?.status === 404) {
+        const response = await this.axiosInstance.post('/login', { email, password });
+        return response.data;
+      }
+      throw error;
+    }
+  }
+
+  async loginAdminAndFetchTransactions(email: string, password: string): Promise<{ transactions: unknown }> {
+    const loginUrl = `${API_BASE_URL}/admin/login`;
+    const transactionsUrl = `${API_BASE_URL}/admin/transactions`;
+
+    try {
+      const loginResponse = await this.axiosInstance.post('/admin/login', { email, password });
+      const loginPayload = loginResponse.data?.data || loginResponse.data;
+      const token = loginPayload?.token || loginPayload?.access_token;
+
+      if (!token) {
+        throw new Error('Admin login response did not include a token.');
+      }
+
+      await this.storeToken(token);
+
+      const transactionsResponse = await this.axiosInstance.get('/admin/transactions', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const transactionPayload = transactionsResponse.data?.data || transactionsResponse.data;
+
+      return { transactions: transactionPayload };
+    } catch (error: any) {
+      const status = error?.response?.status || 'network';
+      const url = error?.config?.url ? `${API_BASE_URL}${error.config.url}` : loginUrl;
+      console.error('[API] admin transactions error', { status, url });
+      throw error;
+    }
   }
 
   async registerDriver(data: {
@@ -112,9 +171,80 @@ class ApiService {
 
   async logout() {
     try {
-      await this.axiosInstance.post('/driver/logout');
+      await this.axiosInstance.post('/logout');
     } catch (error) {
-      console.warn('Logout error:', error);
+      try {
+        await this.axiosInstance.post('/driver/logout');
+      } catch (driverError) {
+        try {
+          await this.axiosInstance.post('/admin/logout');
+        } catch {
+          console.warn('Logout error:', error || driverError);
+        }
+      }
+    }
+  }
+
+  async getCurrentUser() {
+    const response = await this.axiosInstance.get('/user');
+    return response.data;
+  }
+
+  async getDriverQR() {
+    const response = await this.axiosInstance.get('/driver/qr');
+    return response.data;
+  }
+
+  async scanQrIdentifier(qrIdentifier: string) {
+    const response = await this.axiosInstance.post('/admin/qr/scan', { qr_identifier: qrIdentifier });
+    return response.data;
+  }
+
+  async saveLocalAdminTransaction(transaction: Record<string, unknown>) {
+    try {
+      const stored = await AsyncStorage.getItem(LOCAL_ADMIN_HISTORY_KEY);
+      const history = stored ? JSON.parse(stored) : [];
+      const nextHistory = Array.isArray(history) ? [transaction, ...history].slice(0, 100) : [transaction];
+      await AsyncStorage.setItem(LOCAL_ADMIN_HISTORY_KEY, JSON.stringify(nextHistory));
+    } catch (error) {
+      console.warn('[API] unable to cache admin history', error);
+    }
+  }
+
+  async getLocalAdminTransactions(): Promise<unknown[]> {
+    try {
+      const stored = await AsyncStorage.getItem(LOCAL_ADMIN_HISTORY_KEY);
+      const history = stored ? JSON.parse(stored) : [];
+      return Array.isArray(history) ? history : [];
+    } catch (error) {
+      console.warn('[API] unable to read cached admin history', error);
+      return [];
+    }
+  }
+
+  async getAdminDashboardSummary() {
+    try {
+      const endpoint = adminDashboardEndpoint || adminTransactionsEndpoint;
+      const response = await this.axiosInstance.get(endpoint);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        const endpoint = adminDashboardEndpoint || adminTransactionsEndpoint;
+        throw new Error(`Laravel admin dashboard data route not found: GET ${endpoint}.`);
+      }
+      throw error;
+    }
+  }
+
+  async getAdminTransactions() {
+    try {
+      const response = await this.axiosInstance.get(adminTransactionsEndpoint);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error(`Laravel admin transactions API route not found: GET ${adminTransactionsEndpoint}. Set EXPO_PUBLIC_ADMIN_TRANSACTIONS_ENDPOINT to the registered API route.`);
+      }
+      throw error;
     }
   }
 
@@ -129,10 +259,23 @@ class ApiService {
     return response.data;
   }
 
-  async changePassword(currentPassword: string, newPassword: string) {
+  async updateDriverDutyStatus(status: 'on_duty' | 'off_duty') {
+    try {
+      const response = await this.axiosInstance.patch('/driver/status', { status });
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        throw new Error('Driver status endpoint is not available. Add PATCH /api/driver/status in Laravel.');
+      }
+      throw error;
+    }
+  }
+
+  async changePassword(currentPassword: string, newPassword: string, newPasswordConfirmation: string) {
     const response = await this.axiosInstance.post('/driver/change-password', {
       current_password: currentPassword,
       new_password: newPassword,
+      new_password_confirmation: newPasswordConfirmation,
     });
     return response.data;
   }
