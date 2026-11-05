@@ -3,15 +3,24 @@ import { Page, styles, useApi } from '@/components/page';
 import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
 import { getDateString } from '@/utils/dateFormatter';
-import { useCallback, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 export default function AttendanceScreen() {
   const [mode, setMode] = useState(0); const [date, setDate] = useState(new Date());
-  const request = useCallback(() => apiService.getAttendanceByDate(getDateString(date)), [date]); const daily = useApi<any>(request, {});
-  const monthlyRequest = useCallback(() => apiService.getMonthlyAttendance(date.getFullYear(), date.getMonth() + 1), [date]); const monthly = useApi<any>(monthlyRequest, {});
-  const summaryRequest = useCallback(() => apiService.getAttendanceSummary(), []); const summary = useApi<any>(summaryRequest, {});
+  const request = useCallback(() => mode === 0 ? apiService.getAttendanceByDate(getDateString(date)) : Promise.resolve({}), [date, mode]); const daily = useApi<any>(request, {});
+  const monthlyRequest = useCallback(() => mode === 1 ? apiService.getMonthlyAttendance(date.getFullYear(), date.getMonth() + 1) : Promise.resolve({}), [date, mode]); const monthly = useApi<any>(monthlyRequest, {});
+  const summaryRequest = useCallback(() => mode === 2 ? apiService.getAttendanceSummary() : Promise.resolve({}), [mode]); const summary = useApi<any>(summaryRequest, {});
   const state = mode === 0 ? daily : mode === 1 ? monthly : summary; const payload = state.data?.data || state.data || {};
+  const hasFocused = useRef(false);
+  const refreshActive = state.refresh;
+  useFocusEffect(useCallback(() => {
+    if (hasFocused.current) refreshActive();
+    else hasFocused.current = true;
+    const interval = setInterval(refreshActive, 15000);
+    return () => clearInterval(interval);
+  }, [refreshActive]));
   const shift = (amount: number) => { const next = new Date(date); next.setDate(next.getDate() + amount); setDate(next); };
   return <Page title="My Attendance" loading={state.loading} error={state.error} onRetry={state.retry} onRefresh={state.refresh} refreshing={state.refreshing}>
     <SegmentedControl options={['Daily', 'Monthly', 'Summary']} selectedIndex={mode} onValueChange={setMode} />

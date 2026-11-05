@@ -23,6 +23,12 @@ export interface TripSummary {
   in_progress_trips: number;
 }
 
+export interface TripDestination {
+  id: number;
+  name: string;
+  status?: 'Active' | 'Inactive';
+}
+
 export interface TripWithDetails extends Trip {
   distance?: number;
   fare?: number;

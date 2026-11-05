@@ -13,11 +13,11 @@ interface AttendanceRecordProps {
 
 export function AttendanceRecord({ type, date, time, verified }: AttendanceRecordProps) {
   const isEntry = type === 'entry';
-  const textColor = isEntry ? '#155724' : '#123BFF';
-  const icon = isEntry ? '📍' : '🔚';
+  const textColor = isEntry ? '#08744F' : '#1D4ED8';
+  const icon = isEntry ? '↗' : '↘';
 
   return (
-    <ThemedView style={[styles.container, { borderLeftColor: isEntry ? '#28A745' : '#123BFF' }]}>
+    <ThemedView style={[styles.container, { borderLeftColor: textColor }]}>
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <View style={styles.header}>
@@ -39,12 +39,13 @@ export function AttendanceRecord({ type, date, time, verified }: AttendanceRecor
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: Spacing.two,
-    padding: Spacing.three,
-    marginBottom: Spacing.two,
-    borderLeftWidth: 4,
+    borderRadius: 16,
+    padding: 15,
+    marginBottom: 10,
+    borderLeftWidth: 3,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5EBF3',
+    borderLeftColor: '#08744F',
   },
   row: {
     flexDirection: 'row',
@@ -58,25 +59,25 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   type: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
   },
   date: {
-    fontSize: 12,
-    color: '#999999',
+    fontSize: 11,
+    color: '#748198',
     marginBottom: 2,
   },
   time: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '800',
   },
   verified: {
-    fontSize: 11,
-    color: '#28A745',
-    fontWeight: '600',
-    backgroundColor: '#D4EDDA',
-    paddingHorizontal: Spacing.two,
-    paddingVertical: 2,
-    borderRadius: Spacing.one,
+    fontSize: 10,
+    color: '#08744F',
+    fontWeight: '800',
+    backgroundColor: '#DDF7EC',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
 });

@@ -1,4 +1,5 @@
 import { Spacing } from '@/constants/theme';
+import type { Trip } from '@/types';
 import { StyleSheet, View } from 'react-native';
 import { StatusBadge } from './status-badge';
 import { ThemedText } from './themed-text';
@@ -6,11 +7,12 @@ import { ThemedView } from './themed-view';
 
 interface TripCardProps {
   tripId: string;
-  status: 'completed' | 'pending' | 'cancelled';
+  status: Trip['status'];
   destination: string;
   passengerCount: number;
   driver?: string;
   departureTime?: string;
+  arrivalTime?: string;
   date?: string;
 }
 
@@ -21,6 +23,7 @@ export function TripCard({
   passengerCount,
   driver,
   departureTime,
+  arrivalTime,
   date,
 }: TripCardProps) {
   return (
@@ -53,6 +56,12 @@ export function TripCard({
             <ThemedText style={styles.value}>{departureTime}</ThemedText>
           </View>
         )}
+        {arrivalTime && (
+          <View style={{ marginLeft: Spacing.four }}>
+            <ThemedText style={styles.label}>Arrival</ThemedText>
+            <ThemedText style={styles.value}>{arrivalTime}</ThemedText>
+          </View>
+        )}
       </View>
 
       {date && (
@@ -65,43 +74,44 @@ export function TripCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
-    marginBottom: Spacing.three,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5EBF3',
   },
   header: {
-    marginBottom: Spacing.two,
+    marginBottom: 10,
   },
   tripId: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#000000',
-    marginBottom: Spacing.one,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#172A43',
+    marginBottom: 6,
   },
   info: {
     fontSize: 12,
-    color: '#666666',
-    marginBottom: Spacing.two,
+    color: '#748198',
+    marginBottom: 11,
   },
   infoRow: {
     flexDirection: 'row',
-    marginBottom: Spacing.two,
+    marginBottom: 12,
   },
   label: {
-    fontSize: 11,
-    color: '#999999',
-    marginBottom: 2,
+    fontSize: 10,
+    color: '#748198',
+    fontWeight: '700',
+    marginBottom: 4,
   },
   value: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: '700',
+    color: '#23354D',
   },
   date: {
     fontSize: 11,
-    color: '#CCCCCC',
-    marginTop: Spacing.two,
+    color: '#8793A5',
+    marginTop: 2,
   },
 });

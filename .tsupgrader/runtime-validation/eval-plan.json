@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-11-05T12:33:37+08:00",
+  "generatedOnPlatform": "win32",
+  "projectType": "webapp",
+  "setup": [],
+  "assertions": [
+    {
+      "name": "typescript-no-emit",
+      "kind": "process",
+      "command": "npx",
+      "args": ["tsc", "--noEmit"],
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 180
+    },
+    {
+      "name": "lint-pass",
+      "kind": "process",
+      "command": "npm",
+      "args": ["run", "lint"],
+      "verificationMethod": "exit-code",
+      "expected": "0",
+      "timeoutSeconds": 180
+    },
+    {
+      "name": "tests-pass",
+      "kind": "process",
+      "command": "npm",
+      "args": ["test", "--", "--runInBand"],
+      "verificationMethod": "test-results",
+      "expected": "0",
+      "timeoutSeconds": 300
+    },
+    {
+      "name": "expo-web-starts",
+      "kind": "http-probe",
+      "startCommand": "npm",
+      "startArgs": ["run", "web", "--", "--port", "8081"],
+      "url": "http://localhost:8081/",
+      "verificationMethod": "http-status",
+      "expected": "200",
+      "timeoutSeconds": 300
+    }
+  ]
+}

@@ -42,17 +42,17 @@ export function SegmentedControl({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#F0F0F3',
-    borderRadius: Spacing.three,
-    padding: 3,
-    marginBottom: Spacing.three,
+    backgroundColor: '#E9EEF5',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 18,
   },
   segment: {
     flex: 1,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    borderRadius: Spacing.two,
+    borderRadius: 11,
   },
   segmentFirst: {
     borderTopLeftRadius: Spacing.three,
@@ -64,14 +64,18 @@ const styles = StyleSheet.create({
   },
   segmentActive: {
     backgroundColor: '#FFFFFF',
+    shadowColor: '#10233F',
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    elevation: 1,
   },
   segmentText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#999999',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6C7A90',
   },
   segmentTextActive: {
-    color: '#208AEF',
+    color: '#1D4ED8',
     fontWeight: '700',
   },
 });

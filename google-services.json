@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "236379794162",
+    "project_id": "scantrack-2dd51",
+    "storage_bucket": "scantrack-2dd51.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:236379794162:android:540901f252163ee1617e6b",
+        "android_client_info": {
+          "package_name": "com.dingsss.TapTrackDriverApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGBCZdw8JlKU-8dq8LioJFf9dqvuAIzTE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

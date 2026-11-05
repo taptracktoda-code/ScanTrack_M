@@ -1,18 +1,198 @@
-import { StatusBadge } from '@/components';
+﻿import { StatusBadge } from '@/components';
 import { Page, styles } from '@/components/page';
+import { ProfilePicturePicker } from '@/components/profile-picture-picker';
+import { QrCodeCard } from '@/components/qr-code-card';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/context/auth';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { apiService } from '@/services/api';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 export default function ProfileScreen() {
-  const { driver, logout, updateDutyStatus } = useAuth(); const router = useRouter();
-  const [statusUpdating, setStatusUpdating] = useState(false); const [statusError, setStatusError] = useState<string | null>(null);
+  const { driver, logout, updateDutyStatus, updateProfile, refreshProfile } = useAuth();
+  const router = useRouter();
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [assignedToda, setAssignedToda] = useState(() => getAssignedTodaName(driver));
+  const [profile, setProfile] = useState({ name: driver?.name || '', phone: driver?.phone || '', email: driver?.email || '' });
+  const [avatarLoading, setAvatarLoading] = useState(false);
+  const [qr, setQr] = useState<{ identifier?: string; status: string }>({
+    identifier: driver?.qr_identifier,
+    status: driver?.qr_status || driver?.qr_code_status || 'unregistered',
+  });
+  const [qrError, setQrError] = useState<string | null>(null);
   const isOffDuty = driver?.duty_status === 'off_duty';
-  const changeDutyStatus = () => { const nextStatus = isOffDuty ? 'on_duty' : 'off_duty'; Alert.alert(nextStatus === 'off_duty' ? 'Go Off Duty?' : 'Go On Duty?', nextStatus === 'off_duty' ? 'Are you sure you want to go off duty?' : 'You will be available for attendance again.', [{ text: 'Cancel', style: 'cancel' }, { text: nextStatus === 'off_duty' ? 'Go Off Duty' : 'Go On Duty', onPress: async () => { setStatusUpdating(true); setStatusError(null); try { await updateDutyStatus(nextStatus); } catch { setStatusError('Unable to update your duty status. Please try again.'); } finally { setStatusUpdating(false); } } }]); };
+
+  useFocusEffect(useCallback(() => {
+    let isActive = true;
+    apiService.getDriverProfile()
+      .then((response) => {
+        const payload = response?.data?.data || response?.data || response;
+        const profileData = payload?.driver || payload;
+        if (!isActive) return;
+        setAssignedToda(getAssignedTodaName(profileData) || getAssignedTodaName(driver));
+        setQr({
+          identifier: profileData?.qr_identifier || undefined,
+          status: String(profileData?.qr_status || profileData?.qr_code_status || 'unregistered').toLowerCase(),
+        });
+        setQrError(null);
+      })
+      .catch((error: any) => {
+        if (isActive) setQrError(error?.response?.data?.message || error?.message || 'Unable to load your QR code.');
+      });
+    return () => { isActive = false; };
+  }, [driver]));
+
+  const changeDutyStatus = () => {
+    const nextStatus = isOffDuty ? 'on_duty' : 'off_duty';
+    Alert.alert(nextStatus === 'off_duty' ? 'Go Off Duty?' : 'Go On Duty?', nextStatus === 'off_duty' ? 'Are you sure you want to go off duty?' : 'You will be available for attendance again.', [{ text: 'Cancel', style: 'cancel' }, { text: nextStatus === 'off_duty' ? 'Go Off Duty' : 'Go On Duty', onPress: async () => { setStatusUpdating(true); setStatusError(null); try { await updateDutyStatus(nextStatus); } catch { setStatusError('Unable to update your duty status. Please try again.'); } finally { setStatusUpdating(false); } } }]);
+  };
+
+  const saveProfile = async () => {
+    if (!profile.name.trim()) {
+      setProfileError('Enter your full name.');
+      return;
+    }
+    setSaving(true);
+    setProfileError(null);
+    try {
+      await updateProfile({ name: profile.name.trim(), phone: profile.phone.trim(), email: profile.email.trim() });
+      await refreshProfile();
+      Alert.alert('Profile updated', 'Your profile information has been saved.');
+    } catch (error: any) {
+      setProfileError(error?.response?.data?.message || error?.message || 'Unable to save your profile.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadAvatar = async (uri: string, fileName: string) => {
+    setAvatarLoading(true);
+    try {
+      const response = await apiService.uploadProfileImage(uri, fileName);
+      const nextAvatar = response?.data?.avatar || response?.avatar || response?.data?.url || response?.url || response?.data?.profile_image || response?.profile_image;
+      if (!nextAvatar) throw new Error('The server did not return an avatar URL.');
+      await refreshProfile();
+      Alert.alert('Profile picture updated', 'Your new profile picture is now active.');
+    } catch (error: any) {
+      Alert.alert('Unable to update picture', error?.response?.data?.message || error?.message || 'Please try again.');
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
+  const removeAvatar = async () => {
+    setAvatarLoading(true);
+    try {
+      await apiService.removeProfileImage();
+      await refreshProfile();
+      Alert.alert('Profile picture removed', 'Your profile picture has been removed.');
+    } catch (error: any) {
+      Alert.alert('Unable to remove picture', error?.response?.data?.message || error?.message || 'Please try again.');
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
   const confirmLogout = () => Alert.alert('Log out?', 'You will need to sign in again.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Log out', style: 'destructive', onPress: async () => { await logout(); router.replace('/login'); } }]);
-  return <Page title="My Profile"><View style={profileStyles.hero}><View style={profileStyles.avatar}><ThemedText style={profileStyles.avatarText}>{driver?.name?.charAt(0) || 'D'}</ThemedText></View><ThemedText style={profileStyles.name}>{driver?.name || 'Driver'}</ThemedText><ThemedText style={styles.muted}>{driver?.driver_id || 'Driver ID unavailable'}</ThemedText><StatusBadge status={driver?.account_status === 'active' ? 'active' : 'off_duty'} label={driver?.account_status || 'Unknown'} /></View><View style={profileStyles.dutyCard}><View style={profileStyles.dutyHeader}><ThemedText style={profileStyles.dutyLabel}>Driver Status</ThemedText><ThemedText style={[profileStyles.dutyStatus, { color: isOffDuty ? '#64748B' : '#16A34A' }]}>{isOffDuty ? '○ Off Duty' : '● On Duty'}</ThemedText></View><Pressable onPress={changeDutyStatus} disabled={statusUpdating} style={({ pressed }) => [profileStyles.dutyButton, isOffDuty && profileStyles.onDutyButton, pressed && { opacity: 0.8 }, statusUpdating && { opacity: 0.55 }]}><ThemedText style={[profileStyles.dutyButtonText, isOffDuty && profileStyles.onDutyButtonText]}>{statusUpdating ? 'Updating...' : isOffDuty ? 'Go On Duty' : 'Go Off Duty'}</ThemedText></Pressable>{statusError ? <ThemedText style={profileStyles.statusError}>{statusError}</ThemedText> : null}</View><View style={styles.card}><ProfileRow label="Contact Information" value={driver?.phone || driver?.email || 'Not provided'} /><ProfileRow label="Organization" value={driver?.organization || 'Not assigned'} /><ProfileRow label="Assigned Vehicle" value={driver?.vehicle_number || 'Not assigned'} /><ProfileRow label="QR Status" value={driver?.qr_status === 'active' ? 'Active' : 'Not assigned'} /><ProfileRow label="Account" value={driver?.account_status || 'Unknown'} /></View><Pressable style={profileStyles.primary}><ThemedText style={profileStyles.primaryText}>Edit Profile</ThemedText></Pressable><Pressable onPress={() => router.push('/change-password')} style={profileStyles.secondary}><ThemedText style={profileStyles.secondaryText}>Change Password</ThemedText></Pressable><Pressable onPress={confirmLogout} style={profileStyles.logout}><ThemedText style={profileStyles.logoutText}>Log out</ThemedText></Pressable></Page>;
+
+  return (
+    <Page title="My Profile">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={profileStyles.scrollContent} keyboardShouldPersistTaps="handled">
+          <ProfilePicturePicker imageUri={driver?.avatar || null} onChange={uploadAvatar} onRemove={removeAvatar} loading={avatarLoading} />
+          <View style={profileStyles.hero}>
+            <ThemedText style={profileStyles.name}>{driver?.name || 'Driver'}</ThemedText>
+            <ThemedText style={styles.muted}>{driver?.driver_id || 'Driver ID unavailable'}</ThemedText>
+            <View style={profileStyles.badgeRow}><StatusBadge status={driver?.account_status === 'active' ? 'active' : 'off_duty'} label={driver?.account_status || 'Unknown'} /></View>
+          </View>
+
+          <View style={styles.card}>
+            <ProfileField label="Full name" value={profile.name} onChangeText={(value) => setProfile((current) => ({ ...current, name: value }))} />
+            <ProfileField label="Phone" value={profile.phone} keyboardType="phone-pad" onChangeText={(value) => setProfile((current) => ({ ...current, phone: value }))} />
+            <ProfileField label="Email" value={profile.email} keyboardType="email-address" onChangeText={(value) => setProfile((current) => ({ ...current, email: value }))} />
+            <ProfileRow label="Assigned TODA" value={assignedToda || 'Not assigned'} />
+            <ProfileRow label="Assigned Vehicle" value={driver?.vehicle_number || 'Not assigned'} />
+            <ProfileRow label="QR Status" value={qr.status === 'active' ? 'Active' : qr.status === 'unregistered' ? 'Not assigned' : qr.status.replace(/_/g, ' ')} />
+            {profileError ? <ThemedText style={profileStyles.error}>{profileError}</ThemedText> : null}
+          </View>
+          {qr.status === 'active' && qr.identifier ? <QrCodeCard value={qr.identifier} label="My Driver QR Code" /> : (
+            <View style={profileStyles.qrMessage}>
+              <ThemedText style={profileStyles.qrMessageText}>
+                {qrError || (qr.status === 'unregistered' ? 'Your QR code will appear here after your Manager completes your driver account setup.' : 'Your QR code is not active. Please contact your TODA manager.')}
+              </ThemedText>
+            </View>
+          )}
+
+          <View style={profileStyles.dutyCard}>
+            <View style={profileStyles.dutyHeader}><ThemedText style={profileStyles.dutyLabel}>Driver Status</ThemedText><ThemedText style={[profileStyles.dutyStatus, { color: isOffDuty ? '#64748B' : '#16A34A' }]}>{isOffDuty ? '○ Off Duty' : '● On Duty'}</ThemedText></View>
+            <Pressable onPress={changeDutyStatus} disabled={statusUpdating} style={({ pressed }) => [profileStyles.dutyButton, isOffDuty && profileStyles.onDutyButton, pressed && { opacity: 0.8 }, statusUpdating && { opacity: 0.55 }]}><ThemedText style={[profileStyles.dutyButtonText, isOffDuty && profileStyles.onDutyButtonText]}>{statusUpdating ? 'Updating...' : isOffDuty ? 'Go On Duty' : 'Go Off Duty'}</ThemedText></Pressable>
+            {statusError ? <ThemedText style={profileStyles.statusError}>{statusError}</ThemedText> : null}
+          </View>
+
+          <Pressable onPress={saveProfile} disabled={saving} style={({ pressed }) => [profileStyles.primary, saving && profileStyles.disabled, pressed && { opacity: 0.85 }]}><ThemedText style={profileStyles.primaryText}>{saving ? 'Saving...' : 'Save profile'}</ThemedText></Pressable>
+          <Pressable onPress={() => router.push('/change-password')} style={profileStyles.secondary}><ThemedText style={profileStyles.secondaryText}>Change Password</ThemedText></Pressable>
+          <Pressable onPress={confirmLogout} style={profileStyles.logout}><ThemedText style={profileStyles.logoutText}>Log Out</ThemedText></Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Page>
+  );
 }
+
+function ProfileField({ label, value, keyboardType = 'default', onChangeText }: { label: string; value: string; keyboardType?: 'default' | 'email-address' | 'phone-pad'; onChangeText: (value: string) => void }) {
+  return <View style={profileStyles.field}><ThemedText style={styles.muted}>{label}</ThemedText><TextInput value={value} onChangeText={onChangeText} keyboardType={keyboardType} autoCapitalize={label === 'Email' ? 'none' : 'words'} style={profileStyles.input} /></View>;
+}
+
+function getAssignedTodaName(driver?: {
+  toda?: string | { name?: string };
+  toda_name?: string;
+  organization_name?: string;
+  organization?: string | { name?: string };
+  association_name?: string;
+  association?: string | { name?: string };
+} | null) {
+  const getName = (value?: string | { name?: string }) => typeof value === 'string' ? value : value?.name;
+  return [
+    driver?.toda_name,
+    getName(driver?.toda),
+    driver?.organization_name,
+    getName(driver?.organization),
+    driver?.association_name,
+    getName(driver?.association),
+  ].find((name) => typeof name === 'string' && name.trim())?.trim() || '';
+}
+
 function ProfileRow({ label, value }: { label: string; value: string }) { return <View style={profileStyles.row}><ThemedText style={styles.muted}>{label}</ThemedText><ThemedText style={profileStyles.rowValue}>{value}</ThemedText></View>; }
-const profileStyles = StyleSheet.create({ hero: { alignItems: 'center', paddingVertical: 8, marginBottom: 22 }, avatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: '#DCEEFF', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }, avatarText: { color: '#208AEF', fontSize: 36, fontWeight: '800' }, name: { color: '#14212B', fontSize: 22, fontWeight: '800', marginBottom: 5 }, dutyCard: { backgroundColor: '#FFF', borderRadius: 15, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' }, dutyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }, dutyLabel: { color: '#64748B', fontSize: 12, fontWeight: '800' }, dutyStatus: { fontSize: 14, fontWeight: '800' }, dutyButton: { backgroundColor: '#0F172A', borderRadius: 10, paddingVertical: 11, alignItems: 'center', marginTop: 12 }, dutyButtonText: { color: '#FFF', fontSize: 13, fontWeight: '800' }, onDutyButton: { backgroundColor: '#EFF6FF' }, onDutyButtonText: { color: '#2563EB' }, statusError: { color: '#B42318', fontSize: 11, marginTop: 8 }, row: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#EDF1F4' }, rowValue: { color: '#14212B', fontSize: 15, fontWeight: '700', marginTop: 5 }, primary: { backgroundColor: '#208AEF', height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }, primaryText: { color: '#FFF', fontWeight: '800' }, secondary: { backgroundColor: '#EAF4FF', height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }, secondaryText: { color: '#208AEF', fontWeight: '800' }, logout: { height: 52, alignItems: 'center', justifyContent: 'center' }, logoutText: { color: '#D64545', fontWeight: '800' } });
+
+const profileStyles = StyleSheet.create({
+  scrollContent: { paddingBottom: 24 },
+  hero: { alignItems: 'center', paddingVertical: 10, marginBottom: 14 },
+  badgeRow: { marginTop: 10 },
+  name: { color: '#14243A', fontSize: 23, fontWeight: '800', marginBottom: 5 },
+  dutyCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#E5EBF3' },
+  dutyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dutyLabel: { color: '#52647B', fontSize: 13, fontWeight: '800' },
+  dutyStatus: { fontSize: 13, fontWeight: '800' },
+  dutyButton: { backgroundColor: '#14243A', borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 14 },
+  dutyButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  onDutyButton: { backgroundColor: '#EFF6FF' },
+  onDutyButtonText: { color: '#1D4ED8' },
+  statusError: { color: '#B42318', fontSize: 12, marginTop: 9 },
+  field: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EDF1F4' },
+  input: { minHeight: 42, color: '#14243A', fontSize: 15, fontWeight: '700', marginTop: 6 },
+  row: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#EDF1F4' },
+  rowValue: { color: '#23354D', fontSize: 14, fontWeight: '700', marginTop: 5 },
+  qrMessage: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 17, marginBottom: 14, borderWidth: 1, borderColor: '#E5EBF3' },
+  qrMessageText: { color: '#64748B', fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  primary: { backgroundColor: '#1D4ED8', minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  primaryText: { color: '#FFFFFF', fontWeight: '800' },
+  secondary: { backgroundColor: '#EFF6FF', minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  secondaryText: { color: '#1D4ED8', fontWeight: '800' },
+  logout: { minHeight: 50, alignItems: 'center', justifyContent: 'center' },
+  logoutText: { color: '#B42318', fontWeight: '800' },
+  error: { color: '#B42318', fontSize: 12, marginTop: 12 },
+  disabled: { opacity: 0.55 },
+});

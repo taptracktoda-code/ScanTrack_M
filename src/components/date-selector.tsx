@@ -1,4 +1,3 @@
-import { Spacing } from '@/constants/theme';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
@@ -26,7 +25,7 @@ export function DateSelector({
 
   return (
     <ThemedView style={styles.container}>
-      <TouchableOpacity onPress={onPrevious} style={styles.button}>
+      <TouchableOpacity onPress={onPrevious} style={styles.button} accessibilityLabel="Previous date">
         <ThemedText style={styles.buttonText}>‹</ThemedText>
       </TouchableOpacity>
 
@@ -37,7 +36,7 @@ export function DateSelector({
         <ThemedText style={styles.date}>{dateString}</ThemedText>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={onNext} style={styles.button}>
+      <TouchableOpacity onPress={onNext} style={styles.button} accessibilityLabel="Next date">
         <ThemedText style={styles.buttonText}>›</ThemedText>
       </TouchableOpacity>
     </ThemedView>
@@ -49,35 +48,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.two,
-    paddingVertical: Spacing.three,
-    backgroundColor: '#F9F9F9',
-    borderRadius: Spacing.three,
-    marginBottom: Spacing.three,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 17,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5EBF3',
   },
   button: {
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 13,
   },
   buttonText: {
-    fontSize: 28,
-    color: '#208AEF',
-    fontWeight: '600',
+    fontSize: 26,
+    color: '#1D4ED8',
+    fontWeight: '500',
   },
   dateDisplay: {
     flex: 1,
     alignItems: 'center',
   },
   label: {
-    fontSize: 11,
-    color: '#999999',
+    fontSize: 10,
+    color: '#8793A5',
+    fontWeight: '700',
     marginBottom: 2,
   },
   date: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#000000',
+    fontWeight: '800',
+    color: '#172A43',
   },
 });

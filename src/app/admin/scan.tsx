@@ -2,8 +2,8 @@ import { Page } from '@/components/page';
 import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { Button, Pressable, StyleSheet, View } from 'react-native';
 
 type ScanResult = {
@@ -34,6 +34,15 @@ function formatTimestamp(value: unknown) {
   return date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+function getScanFailureTitle(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes('duplicate')) return 'Duplicate Scan';
+  if (normalized.includes('inactive')) return 'Driver Inactive';
+  if (normalized.includes('organization')) return 'Wrong Organization';
+  if (normalized.includes('qr code not found')) return 'Invalid QR Code';
+  return 'QR Scan Failed';
+}
+
 function getErrorResult(error: any): ScanResult {
   const status = error?.response?.status;
   const message = error?.response?.data?.message || error?.message || 'Unable to connect to the Tap Track server.';
@@ -58,15 +67,24 @@ function getErrorResult(error: any): ScanResult {
 export default function AdminScanScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
+  const [isFocused, setIsFocused] = useState(false);
   const [isScanning, setIsScanning] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [torchEnabled, setTorchEnabled] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [lastScanned, setLastScanned] = useState<string | null>(null);
+  const scanLock = useRef(false);
+
+  useFocusEffect(useCallback(() => {
+    setIsFocused(true);
+    return () => setIsFocused(false);
+  }, []));
 
   const handleBarcodeScanned = async (event: BarcodeScanningResult) => {
     const qrValue = String(event?.data || '').trim();
-    if (!qrValue || isProcessing || qrValue === lastScanned) return;
+    if (!qrValue || scanLock.current || isProcessing || qrValue === lastScanned) return;
 
+    scanLock.current = true;
     setIsScanning(false);
     setIsProcessing(true);
     setLastScanned(qrValue);
@@ -75,6 +93,9 @@ export default function AdminScanScreen() {
       const response = await apiService.scanQrIdentifier(qrValue);
       const payload = response?.data || response || {};
       const driver = payload.driver || payload.data?.driver || {};
+      const validationErrors = payload.errors && typeof payload.errors === 'object'
+        ? Object.values(payload.errors).flat().filter((message): message is string => typeof message === 'string')
+        : [];
       const transaction = payload.transaction || payload.data?.transaction || payload.transaction_type || payload.type || 'ENTRY';
       const timestamp = payload.timestamp || payload.data?.timestamp || payload.created_at;
       const transactionText = (getText(transaction, 'ENTRY') || 'ENTRY').toUpperCase();
@@ -82,23 +103,13 @@ export default function AdminScanScreen() {
       const driverName = getText(driver.name, getText(payload.driver_name, 'Unknown Driver'));
       const plateNumber = getText(driver.plate_number, getText(driver.vehicle_number, getText(payload.plate_number, payload.vehicle_number)));
       const organization = getText(payload.organization, getText(payload.data?.organization, driver.organization));
-      const recordedAt = getText(timestamp, new Date().toISOString()) || new Date().toISOString();
-
-      if (succeeded) {
-        await apiService.saveLocalAdminTransaction({
-          id: `local-${Date.now()}`,
-          driver_id: getText(driver.id, getText(payload.driver_id, driverName)),
-          driver: { name: driverName, plate_number: plateNumber, organization },
-          transaction: transactionText,
-          timestamp: recordedAt,
-          created_at: recordedAt,
-        });
-      }
 
       setResult({
         success: succeeded,
-        title: succeeded ? 'DONE' : 'QR Scan Failed',
-        message: succeeded ? `${transactionText} recorded successfully and added to history.` : getText(payload.message, 'Scan could not be recorded.') || 'Scan could not be recorded.',
+        title: succeeded ? 'DONE' : getScanFailureTitle(getText(payload.message, validationErrors[0]) || 'Scan could not be recorded.'),
+        message: succeeded
+          ? `${transactionText} recorded successfully.`
+          : [...(getText(payload.message) ? [getText(payload.message)!] : []), ...validationErrors].join(' ') || 'Scan could not be recorded.',
         driverName,
         plateNumber,
         organization,
@@ -113,6 +124,7 @@ export default function AdminScanScreen() {
   };
 
   const resetScan = () => {
+    scanLock.current = false;
     setIsScanning(true);
     setResult(null);
     setLastScanned(null);
@@ -138,15 +150,26 @@ export default function AdminScanScreen() {
   return (
     <Page title="Scan Driver QR Code">
       <View style={styles.previewWrap}>
-        <CameraView
-          active={isScanning}
-          style={styles.camera}
-          facing="back"
-          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-          onBarcodeScanned={isScanning ? handleBarcodeScanned : undefined}
-          onMountError={(event) => setResult({ success: false, title: 'Camera Error', message: event.message })}
-        />
+        {isFocused && isScanning ? (
+          <CameraView
+            style={styles.camera}
+            facing="back"
+            enableTorch={torchEnabled}
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            onBarcodeScanned={handleBarcodeScanned}
+            onMountError={(event) => {
+              scanLock.current = true;
+              setIsScanning(false);
+              setResult({ success: false, title: 'Camera Error', message: event.message });
+            }}
+          />
+        ) : null}
         <View style={styles.frame} />
+        {isFocused && isScanning ? (
+          <Pressable onPress={() => setTorchEnabled((enabled) => !enabled)} style={styles.torchButton}>
+            <ThemedText style={styles.torchButtonText}>{torchEnabled ? 'Turn light off' : 'Turn light on'}</ThemedText>
+          </Pressable>
+        ) : null}
         <View style={styles.caption}>
           <ThemedText style={styles.captionText}>{isProcessing ? 'Processing scan...' : "Place the driver's QR code inside the frame."}</ThemedText>
         </View>
@@ -184,6 +207,8 @@ const styles = StyleSheet.create({
   previewWrap: { height: 420, borderRadius: 18, overflow: 'hidden', backgroundColor: '#0F172A', marginBottom: 18 },
   camera: { flex: 1 },
   frame: { position: 'absolute', top: '50%', left: '50%', width: 240, height: 240, marginLeft: -120, marginTop: -130, borderWidth: 2, borderColor: '#FFF', borderRadius: 18 },
+  torchButton: { position: 'absolute', top: 14, right: 14, backgroundColor: 'rgba(15, 23, 42, 0.72)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
+  torchButtonText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
   caption: { position: 'absolute', left: 16, right: 16, bottom: 18, backgroundColor: 'rgba(15, 23, 42, 0.72)', borderRadius: 10, padding: 12 },
   captionText: { color: '#FFF', fontSize: 13, fontWeight: '700', textAlign: 'center' },
   message: { color: '#33404D', fontSize: 15, marginBottom: 16 },

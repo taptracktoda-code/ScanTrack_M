@@ -66,14 +66,14 @@ function getDriverHistory(transactions: any[]): DriverHistory[] {
 
 export default function AdminHistoryScreen() {
   const request = useCallback(async () => {
-    const localTransactions = await apiService.getLocalAdminTransactions();
-    try {
-      const remoteData = await apiService.getAdminTransactions();
-      return [...localTransactions, ...resolveTransactions(remoteData)];
-    } catch (error) {
-      if (localTransactions.length) return localTransactions;
-      throw error;
-    }
+    const remoteData = await apiService.getAdminTransactions();
+    const transactions = resolveTransactions(remoteData);
+    if (transactions.length) return transactions;
+
+    const dashboardData = await apiService.getAdminDashboardSummary();
+    const response = dashboardData?.data?.data || dashboardData?.data || dashboardData || {};
+    const summary = response.summary || response.dashboard || response.statistics || response;
+    return Array.isArray(summary.recent_activity) ? summary.recent_activity : [];
   }, []);
   const { data, loading, error, retry, refresh, refreshing } = useApi(request, {} as any);
   const transactions = resolveTransactions(data);

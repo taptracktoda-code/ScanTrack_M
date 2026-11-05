@@ -1,4 +1,3 @@
-import { Spacing } from '@/constants/theme';
 import { StyleSheet, View } from 'react-native';
 import { StatusBadge } from './status-badge';
 import { ThemedText } from './themed-text';
@@ -12,76 +11,65 @@ interface StatusCardProps {
 }
 
 export function StatusCard({ status, title, subtitle, message }: StatusCardProps) {
-  const statusColors: Record<typeof status, string> = {
-    active: '#208AEF',
-    completed: '#28A745',
-    off_duty: '#6C757D',
-    not_checked_in: '#123BFF',
+  const statusColors: Record<typeof status, { background: string; accent: string; label: string }> = {
+    active: { background: '#ECFDF5', accent: '#059669', label: 'Checked in' },
+    completed: { background: '#EFF6FF', accent: '#2563EB', label: 'Shift complete' },
+    off_duty: { background: '#F1F5F9', accent: '#64748B', label: 'Off duty' },
+    not_checked_in: { background: '#EFF6FF', accent: '#2563EB', label: 'Ready to check in' },
   };
+  const colors = statusColors[status];
 
   return (
-    <ThemedView
-      style={[
-        styles.card,
-        { backgroundColor: status === 'active' ? '#123BFF' : statusColors[status] },
-      ]}>
+    <ThemedView style={[styles.card, { backgroundColor: colors.background }]}>
       <View style={styles.header}>
-        <ThemedText style={styles.profileIcon}>👤</ThemedText>
+        <View style={[styles.statusMark, { backgroundColor: colors.accent }]} />
         <View style={{ flex: 1 }}>
-          <ThemedText style={styles.title}>{title}</ThemedText>
-          <ThemedText style={styles.subtitle}>{subtitle}</ThemedText>
+          <ThemedText style={[styles.eyebrow, { color: colors.accent }]}>{title}</ThemedText>
+          <ThemedText style={styles.title}>{subtitle}</ThemedText>
         </View>
+        <StatusBadge status={status} label={colors.label} />
       </View>
 
       <ThemedText style={styles.message}>{message}</ThemedText>
-
-      <View style={styles.footer}>
-        <StatusBadge status={status} />
-      </View>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Spacing.three,
-    padding: 14,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E4EBF3',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 13,
   },
-  profileIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FFFFFF',
-    color: '#7D7D7D',
-    fontSize: 25,
-    lineHeight: 52,
-    textAlign: 'center',
-    marginRight: Spacing.three,
+  statusMark: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   title: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontSize: 9,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 2,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '800',
+    color: '#172A43',
+    marginTop: 3,
   },
   message: {
-    fontSize: 10,
-    color: '#FFFFFF',
-    marginBottom: Spacing.three,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#52647B',
   },
 });

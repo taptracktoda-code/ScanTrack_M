@@ -18,3 +18,16 @@ export interface ScheduleWithStatus extends Schedule {
   is_today: boolean;
   work_hours?: number;
 }
+
+export interface OrganizationEvent {
+  id: number;
+  organization_id: number;
+  title: string;
+  description: string | null;
+  event_date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  created_at: string;
+  updated_at: string;
+}

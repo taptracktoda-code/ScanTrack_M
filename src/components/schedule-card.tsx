@@ -1,4 +1,3 @@
-import { Spacing } from '@/constants/theme';
 import { StyleSheet, View } from 'react-native';
 import { StatusBadge } from './status-badge';
 import { ThemedText } from './themed-text';
@@ -57,47 +56,48 @@ export function ScheduleCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
-    marginBottom: Spacing.three,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#E5EBF3',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.two,
+    marginBottom: 12,
   },
   date: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#000000',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#172A43',
     flex: 1,
   },
   today: {
     fontSize: 11,
-    color: '#208AEF',
-    fontWeight: '600',
+    color: '#1D4ED8',
+    fontWeight: '800',
   },
   timeRange: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#208AEF',
-    marginBottom: Spacing.two,
+    fontSize: 18,
+    lineHeight: 25,
+    fontWeight: '800',
+    color: '#1D4ED8',
+    marginBottom: 13,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: Spacing.one,
+    marginBottom: 9,
   },
   label: {
     fontSize: 11,
-    color: '#999999',
+    color: '#748198',
   },
   value: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: '700',
+    color: '#23354D',
   },
 });

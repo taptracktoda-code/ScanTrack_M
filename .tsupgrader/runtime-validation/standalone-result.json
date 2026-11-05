@@ -1,0 +1,126 @@
+{
+  "planHash": "f193b07571c641d904180f8326d9546eec37fefaf7bfdd0afc3d368531709c4a",
+  "phase": "standalone",
+  "recordedAtUtc": "2026-11-05T07:06:15.8172294Z",
+  "retryCount": 3,
+  "resetBaseline": false,
+  "complete": true,
+  "result": {
+    "setupSucceeded": true,
+    "setupDurationMs": 0,
+    "setupFailureOutput": null,
+    "assertions": [
+      {
+        "name": "typescript-no-emit",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": false,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 2,
+        "outputSample": "src/components/app-tabs.tsx(8,25): error TS2367: This comparison appears to be unintentional because the types \u0027ColorSchemeName | null\u0027 and \u0027\u0022unspecified\u0022\u0027 have no overlap.\r\nsrc/components/app-tabs.tsx(8,25): error TS2538: Type \u0027null\u0027 cannot be used as an index type.\r\nsrc/components/app-tabs.web.tsx(38,6): error TS2322: Type \u0027{ children: Element; style: ({ pressed }: PressableStateCallbackType) =\u003E false | { opacity: number; }; pointerEvents?: \u0022auto\u0022 | \u0022none\u0022 | \u0022box-none\u0022 | \u0022box-only\u0022 | undefined; ... 130 more ...; href?: string | undefined; }\u0027 is not assignable to type \u0027{ ref?: Ref\u003CReactNativeElement\u003E | undefined; }\u0027.\r\n  Types of property \u0027ref\u0027 are incompatible.\r\n    Type \u0027Ref\u003C(props: Omit\u003CViewProps, \u0022ref\u0022\u003E \u0026 { ref?: Ref\u003CReactNativeElement\u003E | undefined; }) =\u003E ReactNode\u003E | undefined\u0027 is not assignable to type \u0027Ref\u003CReactNativeElement\u003E | undefined\u0027.\r\n      Type \u0027(instance: ((props: Omit\u003CViewProps, \u0022ref\u0022\u003E \u0026 { ref?: Ref\u003CReactNativeElement\u003E | undefined; }) =\u003E ReactNode) | null) =\u003E void | (() =\u003E VoidOrUndefinedOnly)\u0027 is not assignable to type \u0027Ref\u003CReactNativeElement\u003E | undefined\u0027.\r\n        Type \u0027(instance: ((props: Omit\u003CViewProps, \u0022ref\u0022\u003E \u0026 { ref?: Ref\u003CReactNativeElement\u003E | undefined; }) =\u003E ReactNode) | null) =\u003E void | (() =\u003E VoidOrUndefinedOnly)\u0027 is not assignable to type \u0027(instance: ReactNativeElement | null) =\u003E void | (() =\u003E VoidOrUndefinedOnly)\u0027.\r\n          Types of parameters \u0027instance\u0027 and \u0027instance\u0027 are incompatible.\r\n            Type \u0027ReactNativeElement | null\u0027 is not assignable to type \u0027((props: Omit\u003CViewProps, \u0022ref\u0022\u003E \u0026 { ref?: Ref\u003CReactNativeElement\u003E | undefined; }) =\u003E ReactNode) | null\u0027.\r\n              Type \u0027ReactNativeElement\u0027 is not assignable to type \u0027(props: Omit\u003CViewProps, \u0022ref\u0022\u003E \u0026 { ref?: Ref\u003CReactNativeElement\u003E | undefined; }) =\u003E ReactNode\u0027.\r\n                Type \u0027ReactNativeElement\u0027 provides no match for the signature \u0027(props: Omit\u003CViewProps, \u0022ref\u0022\u003E \u0026 { ref?: Ref\u003CReactNativeElement\u003E | undefined; }): ReactNode\u0027.\r\nsrc/components/app-tabs.web.tsx(52,25): error TS2367: This comparison appears to be unintentional because the types \u0027ColorSchemeName | null\u0027 and \u0027\u0022unspecified\u0022\u0027 have no overlap.\r\nsrc/components/app-tabs.web.tsx(52,25): error TS2538: Type \u0027null\u0027 cannot be used as an index type.\r\nsrc/hooks/use-theme.ts(11,17): error TS2367: This comparison appears to be unintentional because the types \u0027ColorSchemeName | null\u0027 and \u0027\u0022unspecified\u0022\u0027 have no overlap.\r\nsrc/hooks/use-theme.ts(13,17): error TS2538: Type \u0027null\u0027 cannot be used as an index type.\r\n",
+        "durationMs": 20549
+      },
+      {
+        "name": "lint-pass",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": false,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 1,
+        "outputSample": "\r\n\u003E taptrackdriverapp@1.0.0 lint\r\n\u003E expo lint\r\n\r\nenv: load .env\r\nenv: export EXPO_PUBLIC_API_URL EXPO_PUBLIC_MANAGER_LOGIN_ENDPOINT EXPO_PUBLIC_MANAGER_PASSWORD_OTP_REQUEST_ENDPOINT EXPO_PUBLIC_MANAGER_PASSWORD_OTP_VERIFY_ENDPOINT EXPO_PUBLIC_MANAGER_PASSWORD_RESET_ENDPOINT EXPO_PUBLIC_PASSWORD_OTP_REQUEST_ENDPOINT EXPO_PUBLIC_PASSWORD_OTP_VERIFY_ENDPOINT EXPO_PUBLIC_PASSWORD_RESET_ENDPOINT EXPO_PUBLIC_PUBLIC_DRIVER_REGISTRATION_ENDPOINT\r\n\r\nC:\\Users\\Andrie\\Desktop\\mobileqrbasedapp\\src\\app\\(tabs)\\profile.tsx\r\n  1:1  warning  Unexpected Unicode BOM (Byte Order Mark)  unicode-bom\r\n\r\nC:\\Users\\Andrie\\Desktop\\mobileqrbasedapp\\src\\components\\loading-state.tsx\r\n  12:9  warning  \u0027colors\u0027 is assigned a value but never used  @typescript-eslint/no-unused-vars\r\n\r\nC:\\Users\\Andrie\\Desktop\\mobileqrbasedapp\\src\\hooks\\use-color-scheme.web.ts\r\n  11:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders\r\n\r\nEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:\r\n* Update external systems with the latest state from React.\r\n* Subscribe for updates from some external system, calling setState in a callback function when external state changes.\r\n\r\nCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).\r\n\r\nC:\\Users\\Andrie\\Desktop\\mobileqrbasedapp\\src\\hooks\\use-color-scheme.web.ts:11:5\r\n   9 |\r\n  10 |   useEffect(() =\u003E {\r\n\u003E 11 |     setHasHydrated(true);\r\n     |     ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect\r\n  12 |   }, []);\r\n  13 |\r\n  14 |   const colorScheme = useRNColorScheme();  react-hooks/set-state-in-effect\r\n\r\n\u2716 3 problems (1 error, 2 warnings)\r\n  0 errors and 1 warning potentially fixable with the \u0060--fix\u0060 option.\r\n\r\n",
+        "durationMs": 15948
+      },
+      {
+        "name": "tests-pass",
+        "kind": "process",
+        "verificationMethod": "test-results",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E taptrackdriverapp@1.0.0 test\r\n\u003E jest --runInBand\r\n\r\n\r\nTest Suites: 3 passed, 3 total\r\nTests:       18 passed, 18 total\r\nSnapshots:   0 total\r\nTime:        2.706 s, estimated 3 s\r\nRan all test suites.\r\n",
+        "durationMs": 6353,
+        "testResults": {
+          "testFramework": "jest",
+          "runnerDetectedFrom": "package_json",
+          "testsTotal": 18,
+          "testsPassed": 18,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "parseFailed": false
+        }
+      },
+      {
+        "name": "expo-web-starts",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n\u003C!DOCTYPE html\u003E\u003Chtml lang=\u0022en\u0022\u003E\u003Chead\u003E\u003Cmeta charSet=\u0022utf-8\u0022/\u003E\u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1, shrink-to-fit=no\u0022/\u003E\u003Cmeta http-equiv=\u0022X-UA-Compatible\u0022 content=\u0022IE=edge\u0022/\u003E\u003Clink rel=\u0022preload\u0022 href=\u0022/node_modules/expo-router/entry.bundle?platform=web\u0026amp;dev=true\u0026amp;hot=false\u0026amp;lazy=true\u0026amp;transform.asyncRoutes=true\u0026amp;transform.routerRoot=src%2Fapp\u0026amp;transform.reactCompiler=true\u0022 as=\u0022script\u0022/\u003E\u003Cstyle id=\u0022expo-reset\u0022\u003E#root,body,html{height:100%}body{overflow:hidden}#root{display:flex}\u003C/style\u003E\u003Cstyle id=\u0022react-native-stylesheet\u0022\u003E[stylesheet-group=\u00220\u0022]{}\nbody{margin:0;}\nbutton::-moz-focus-inner,input::-moz-focus-inner{border:0;padding:0;}\nhtml{-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:rgba(0,0,0,0);}\ninput::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-webkit-search-results-button,input::-webkit-search-results-decoration{display:none;}\n[stylesheet-group=\u00221\u0022]{}\n.css-accessibilityImage-9pa8cd{bottom:0px;height:100%;left:0px;opacity:0;position:absolute;right:0px;top:0px;width:100%;z-index:-1;}\n.css-text-146c3p1{background-color:rgba(0,0,0,0.00);border:0 solid black;box-sizing:border-box;color:rgba(0,0,0,1.00);display:inline;font:14px -apple-system,BlinkMacSystemFont,\u0022Segoe UI\u0022,Roboto,Helvetica,Arial,sans-serif;list-style:none;margin:0px;padding:0px;position:relative;text-align:start;text-decoration:none;white-space:pre-wrap;word-wrap:break-word;}\n.css-textHasAncestor-1jxf684{background-color:rgba(0,0,0,0.00);border:0 solid black;box-sizing:border-box;color:inherit;display:inline;font:inherit;list-style:none;margin:0px;padding:0px;position:relative;text-align:inherit;text-decoration:none;white-space:inherit;word-wrap:break-word;}\n.css-textinput-11aywtz{-moz-appearance:textfield;-webkit-appearance:none;background-color:rgba(0,0,0,0.00);border-bottom-left-radius:0px;border-bottom-right-radius:0px;border-top-left-radius:0px;border-top-right-radius:0px;border:0 solid black;box-sizing:border-box;font:14px -apple-system,BlinkMacSystemFont,\u0022Segoe UI\u0022,Roboto,Helvetica,Arial,sans-serif;margin:0px;padding:0px;resize:none;}\n.css-view-g5y9jx{align-content:flex-start;align-items:stretch;background-color:rgba(0,0,0,0.00);border:0 solid black;box-sizing:border-box;display:flex;flex-basis:auto;flex-direction:column;flex-shrink:0;list-style:none;margin:0px;min-height:0px;min-width:0px;padding:0px;position:relative;text-decoration:none;z-index:0;}\n[stylesheet-group=\u00222\u0022]{}\n.r-borderColor-11mg6pl{border-bottom-color:rgba(255,255,255,1.00);border-left-color:rgba(255,255,255,1.00);border-right-color:rgba(255,255,255,1.00);border-top-color:rgba(255,255,255,1.00);}\n.r-borderColor-1awa8pu{border-bottom-color:rgba(101,119,134,1.00);border-left-color:rgba(101,119,134,1.00);border-right-color:rgba(101,119,134,1.00);border-top-color:rgba(101,119,134,1.00);}\n.r-borderColor-1d4xg89{border-bottom-color:rgba(170,184,194,1.00);border-left-color:rgba(170,184,194,1.00);border-right-color:rgba(170,184,194,1.00);border-top-color:rgba(170,184,194,1.00);}\n.r-borderColor-1imzrw{border-bottom-color:rgba(228,235,243,1.00);border-left-color:rgba(228,235,243,1.00);border-right-color:rgba(228,235,243,1.00);border-top-color:rgba(228,235,243,1.00);}\n.r-borderColor-1jyn79y{border-bottom-color:rgba(0,150,136,1.00);border-left-color:rgba(0,150,136,1.00);border-right-color:rgba(0,150,136,1.00);border-top-color:rgba(0,150,136,1.00);}\n.r-borderColor-1rvyss1{border-bottom-color:rgba(255,255,255,0.20);border-left-color:rgba(255,255,255,0.20);border-right-color:rgba(255,255,255,0.20);border-top-color:rgba(255,255,255,0.20);}\n.r-borderColor-3hbygs{border-bottom-color:rgba(229,235,243,1.00);border-left-color:rgba(229,235,243,1.00);border-right-color:rgba(229,235,243,1.00);border-top-color:rgba(229,235,243,1.00);}\n.r-borderColor-4a18lf{border-bottom-color:rgba(255,0,0,1.00);border-left-color:rgba(255,0,0,1.00);border-right-color:rgba(255,0,0,1.00);border-top-color:rgba(255,0,0,1.00);}\n.r-borderColor-60ke3l{border-bottom-color:rgba(0,128,0,1.00);border-left-color:rgba(0,128,0,1.0\n\u2026[truncated]",
+        "durationMs": 64186
+      }
+    ],
+    "executions": [
+      {
+        "source": "typescript-no-emit",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npx.CMD",
+        "args": [
+          "tsc",
+          "--noEmit"
+        ],
+        "cwd": "C:\\Users\\Andrie\\Desktop\\mobileqrbasedapp",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "lint-pass",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "lint"
+        ],
+        "cwd": "C:\\Users\\Andrie\\Desktop\\mobileqrbasedapp",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "tests-pass",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "test",
+          "--",
+          "--runInBand"
+        ],
+        "cwd": "C:\\Users\\Andrie\\Desktop\\mobileqrbasedapp",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "expo-web-starts",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "web",
+          "--",
+          "--port",
+          "8081"
+        ],
+        "cwd": "C:\\Users\\Andrie\\Desktop\\mobileqrbasedapp",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}

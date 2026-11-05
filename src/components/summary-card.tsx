@@ -11,11 +11,11 @@ interface SummaryCardProps {
 }
 
 const colorConfig = {
-  green: { backgroundColor: '#D4EDDA', textColor: '#155724', borderColor: '#28A745' },
-  blue: { backgroundColor: '#D1ECF1', textColor: '#0C5460', borderColor: '#17A2B8' },
-  orange: { backgroundColor: '#FFE5CC', textColor: '#856404', borderColor: '#FFC107' },
-  red: { backgroundColor: '#DCE5FF', textColor: '#123BFF', borderColor: '#123BFF' },
-  gray: { backgroundColor: '#E2E3E5', textColor: '#383D41', borderColor: '#6C757D' },
+  green: { backgroundColor: '#ECFDF5', textColor: '#08744F', borderColor: '#A7E8CB' },
+  blue: { backgroundColor: '#EFF6FF', textColor: '#1D4ED8', borderColor: '#BFDBFE' },
+  orange: { backgroundColor: '#FFFBEB', textColor: '#A16207', borderColor: '#FDE68A' },
+  red: { backgroundColor: '#FEF2F2', textColor: '#B42318', borderColor: '#FECACA' },
+  gray: { backgroundColor: '#F1F5F9', textColor: '#526176', borderColor: '#DCE3EB' },
 };
 
 export function SummaryCard({
@@ -31,11 +31,11 @@ export function SummaryCard({
       style={[
         styles.card,
         {
-          backgroundColor: config.backgroundColor,
+          backgroundColor: '#FFFFFF',
           borderColor: config.borderColor,
         },
       ]}>
-      <ThemedText style={styles.icon}>{icon}</ThemedText>
+      <ThemedText style={[styles.icon, { backgroundColor: config.backgroundColor, color: config.textColor }]}>{icon}</ThemedText>
       <ThemedText style={[styles.label, { color: config.textColor }]}>
         {label}
       </ThemedText>
@@ -49,24 +49,31 @@ export function SummaryCard({
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: Spacing.three,
-    padding: Spacing.three,
-    borderWidth: 2,
-    alignItems: 'center',
+    borderRadius: 17,
+    padding: 14,
+    borderWidth: 1,
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    marginHorizontal: Spacing.one,
+    marginHorizontal: 3,
+    minHeight: 112,
   },
   icon: {
-    fontSize: 28,
-    marginBottom: Spacing.one,
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    overflow: 'hidden',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 19,
+    marginBottom: 11,
   },
   label: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
     marginBottom: Spacing.one,
   },
   value: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
   },
 });

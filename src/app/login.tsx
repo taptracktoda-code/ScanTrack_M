@@ -6,10 +6,12 @@ import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+declare const require: (path: string) => number;
+
 export default function LoginScreen() {
   const router = useRouter();
   const { login, error, clearError } = useAuth();
-  const [portal, setPortal] = useState<'driver' | 'admin'>('driver');
+  const [portal, setPortal] = useState<'driver' | 'manager'>('driver');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -24,7 +26,7 @@ export default function LoginScreen() {
     clearError();
     try {
       const loggedInUser = await login(email.trim(), password, portal);
-      const nextRoute = loggedInUser?.role === 'admin' ? '/admin/dashboard' : '/(tabs)';
+      const nextRoute = loggedInUser?.role === 'manager' ? '/admin/dashboard' : '/(tabs)';
       router.replace(nextRoute);
     } catch {
       // AuthContext exposes the server error below the form.
@@ -33,16 +35,28 @@ export default function LoginScreen() {
     }
   };
 
+  const handleForgotPassword = () => {
+    clearError();
+    router.push({
+      pathname: '/change-password',
+      params: {
+        mode: 'forgot',
+        role: portal,
+        email: email.trim(),
+      },
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Image source={require('@/assets/images/tap-track-logo.svg')} contentFit="contain" style={styles.brandLogo} />
-          <ThemedText style={styles.logo}>TAP TRACK</ThemedText>
-          <ThemedText style={styles.kicker}>{portal === 'admin' ? 'ADMIN PORTAL' : 'DRIVER PORTAL'}</ThemedText>
+          <ThemedText style={styles.logo}>SCAN TRACK</ThemedText>
+          <ThemedText style={styles.kicker}>{portal === 'manager' ? 'MANAGER PORTAL' : 'DRIVER PORTAL'}</ThemedText>
           <ThemedText style={styles.title}>Welcome back</ThemedText>
           <ThemedText style={styles.subtitle}>
-            {portal === 'admin' ? 'Sign in with your Tap Track admin account.' : 'Sign in to check your terminal activity.'}
+            {portal === 'manager' ? 'Sign in with your ScanTrack manager account.' : 'Sign in to check your terminal activity.'}
           </ThemedText>
           <View style={styles.portalSwitch}>
             <Pressable
@@ -52,14 +66,14 @@ export default function LoginScreen() {
               <ThemedText style={[styles.portalText, portal === 'driver' && styles.portalTextActive]}>Driver</ThemedText>
             </Pressable>
             <Pressable
-              onPress={() => { setPortal('admin'); clearError(); }}
-              style={[styles.portalOption, portal === 'admin' && styles.portalOptionActive]}
+              onPress={() => { setPortal('manager'); clearError(); }}
+              style={[styles.portalOption, portal === 'manager' && styles.portalOptionActive]}
             >
-              <ThemedText style={[styles.portalText, portal === 'admin' && styles.portalTextActive]}>Admin</ThemedText>
+              <ThemedText style={[styles.portalText, portal === 'manager' && styles.portalTextActive]}>Manager</ThemedText>
             </Pressable>
           </View>
           <View style={styles.form}>
-            <ThemedText style={styles.label}>Email or username</ThemedText>
+            <ThemedText style={styles.label}>{portal === 'manager' ? 'Email address' : 'Email or username'}</ThemedText>
             <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" placeholder="Enter your Email" placeholderTextColor="#9AA6B2" style={styles.input} />
             <ThemedText style={styles.label}>Password</ThemedText>
             <View style={styles.passwordField}>
@@ -67,20 +81,22 @@ export default function LoginScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={passwordVisible ? 'Hide password' : 'Show password'}
-                onPress={() => setPasswordVisible((visible) => !visible)}
+                onPress={() => setPasswordVisible((visible: boolean) => !visible)}
                 style={styles.passwordToggle}
               >
                 <ThemedText style={styles.passwordToggleText}>{passwordVisible ? 'Hide' : 'Show'}</ThemedText>
               </Pressable>
             </View>
             {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
-            <Pressable onPress={handleLogin} disabled={submitting} style={({ pressed }) => [styles.button, pressed && styles.pressed, submitting && styles.disabled]}>
-              <ThemedText style={styles.buttonText}>{submitting ? 'Signing in...' : portal === 'admin' ? 'Admin Login' : 'Driver Login'}</ThemedText>
+            <Pressable onPress={handleLogin} disabled={submitting} style={({ pressed }: { pressed: boolean }) => [styles.button, pressed && styles.pressed, submitting && styles.disabled]}>
+              <ThemedText style={styles.buttonText}>{submitting ? 'Signing in...' : portal === 'manager' ? 'Manager Login' : 'Driver Login'}</ThemedText>
             </Pressable>
-            <Pressable><ThemedText style={styles.forgot}>Forgot password?</ThemedText></Pressable>
+            <Pressable accessibilityRole="button" onPress={handleForgotPassword}>
+              <ThemedText style={styles.forgot}>Forgot password?</ThemedText>
+            </Pressable>
           </View>
           <ThemedText style={styles.footer}>
-            {portal === 'admin' ? 'Admin QR scans are validated by the Laravel API.' : 'Attendance is recorded by the terminal QR scanner.'}
+            {portal === 'manager' ? 'Manager QR scans are validated by the Laravel API.' : 'Attendance is recorded by the terminal QR scanner.'}
           </ThemedText>
         </ScrollView>
       </KeyboardAvoidingView>
