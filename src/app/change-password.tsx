@@ -1,3 +1,4 @@
+import { useResponsiveLayout } from '@/hooks/use-responsive-layout';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/context/auth';
 import { API_BASE_URL, apiService } from '@/services/api';
@@ -17,7 +18,8 @@ function getPasswordRouteError(requestError: any) {
 
 export default function ChangePasswordScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ email?: string; mode?: string; role?: string }>();
+  const { horizontalPadding } = useResponsiveLayout();
+  const params = useLocalSearchParams<{ email?: string; mode?: string; role?: string; from?: string }>();
   const { driver, user, isManager } = useAuth();
   const account = isManager ? user : driver;
   const recoveryRole = params.role === 'manager' ? 'manager' : params.role === 'driver' ? 'driver' : null;
@@ -157,7 +159,7 @@ export default function ChangePasswordScreen() {
         <ThemedText style={styles.title}>Password changed</ThemedText>
         <ThemedText style={styles.subtitle}>Your password has been updated securely. You can now use your new credentials to sign in.</ThemedText>
         <Pressable onPress={() => isForgotPassword ? router.replace('/login') : router.back()} style={styles.button}>
-          <ThemedText style={styles.buttonText}>{isForgotPassword ? 'Back to login' : 'Back to profile'}</ThemedText>
+          <ThemedText style={styles.buttonText}>{isForgotPassword ? 'Back to login' : params.from === 'driver-settings' ? 'Back to Settings' : 'Back to profile'}</ThemedText>
         </Pressable>
       </View>
     );
@@ -209,7 +211,7 @@ export default function ChangePasswordScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.content, { paddingHorizontal: horizontalPadding }]} keyboardShouldPersistTaps="handled">
           <Pressable onPress={() => router.back()}><ThemedText style={styles.back}>‹ Back</ThemedText></Pressable>
           <ThemedText style={styles.logo}>TAP TRACK</ThemedText>
           <ThemedText style={styles.kicker}>SECURITY</ThemedText>
@@ -235,5 +237,5 @@ function validatePassword(value: string) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F7F9FC' }, flex: { flex: 1 }, content: { padding: 28, paddingBottom: 40 }, back: { color: '#208AEF', fontWeight: '700', marginBottom: 30 }, logo: { color: '#208AEF', fontSize: 19, fontWeight: '800', letterSpacing: 1 }, kicker: { color: '#7B8794', fontSize: 11, fontWeight: '700', letterSpacing: 2, marginTop: 4 }, title: { color: '#14212B', fontSize: 32, fontWeight: '800', marginTop: 30 }, subtitle: { color: '#6B7785', fontSize: 15, lineHeight: 22, marginTop: 8 }, form: { marginTop: 24 }, label: { color: '#33404D', fontSize: 13, fontWeight: '700', marginBottom: 8, marginTop: 18 }, input: { height: 52, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DFE6ED', borderRadius: 14, paddingHorizontal: 16, fontSize: 15, color: '#14212B' }, readOnlyInput: { color: '#64748B', backgroundColor: '#F1F5F9' }, hint: { color: '#6B7785', fontSize: 12, lineHeight: 18, marginTop: 8 }, rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }, link: { color: '#208AEF', fontSize: 12, fontWeight: '800' }, linkDisabled: { color: '#94A3B8' }, error: { color: '#C0392B', fontSize: 13, marginTop: 14 }, button: { height: 54, borderRadius: 15, backgroundColor: '#208AEF', alignItems: 'center', justifyContent: 'center', marginTop: 24 }, pressed: { opacity: 0.8 }, disabled: { opacity: 0.55 }, buttonText: { color: '#FFF', fontSize: 16, fontWeight: '800' }, successCard: { alignItems: 'center', marginTop: 26, paddingVertical: 32, backgroundColor: '#FFF', borderRadius: 18 }, successIcon: { width: 68, height: 68, lineHeight: 68, textAlign: 'center', backgroundColor: '#DCFCE7', color: '#15803D', borderRadius: 34, fontSize: 30, fontWeight: '800' },
+  safe: { flex: 1, backgroundColor: '#F7F9FC' }, flex: { flex: 1 }, content: { width: '100%', maxWidth: 480, alignSelf: 'center', padding: 28, paddingBottom: 40 }, back: { color: '#208AEF', fontWeight: '700', marginBottom: 30 }, logo: { color: '#208AEF', fontSize: 19, fontWeight: '800', letterSpacing: 1 }, kicker: { color: '#7B8794', fontSize: 11, fontWeight: '700', letterSpacing: 2, marginTop: 4 }, title: { color: '#14212B', fontSize: 32, lineHeight: 40, fontWeight: '800', marginTop: 30 }, subtitle: { color: '#6B7785', fontSize: 15, lineHeight: 22, marginTop: 8 }, form: { marginTop: 24 }, label: { color: '#33404D', fontSize: 13, fontWeight: '700', marginBottom: 8, marginTop: 18 }, input: { minHeight: 52, paddingVertical: 12, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#DFE6ED', borderRadius: 14, paddingHorizontal: 16, fontSize: 15, color: '#14212B' }, readOnlyInput: { color: '#64748B', backgroundColor: '#F1F5F9' }, hint: { color: '#6B7785', fontSize: 12, lineHeight: 18, marginTop: 8 }, rowBetween: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }, link: { color: '#208AEF', fontSize: 12, fontWeight: '800' }, linkDisabled: { color: '#94A3B8' }, error: { color: '#C0392B', fontSize: 13, marginTop: 14 }, button: { minHeight: 54, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 15, backgroundColor: '#208AEF', alignItems: 'center', justifyContent: 'center', marginTop: 24 }, pressed: { opacity: 0.8 }, disabled: { opacity: 0.55 }, buttonText: { color: '#FFF', fontSize: 16, fontWeight: '800' }, successCard: { alignItems: 'center', marginTop: 26, paddingVertical: 32, backgroundColor: '#FFF', borderRadius: 18 }, successIcon: { width: 68, height: 68, lineHeight: 68, textAlign: 'center', backgroundColor: '#DCFCE7', color: '#15803D', borderRadius: 34, fontSize: 30, fontWeight: '800' },
 });

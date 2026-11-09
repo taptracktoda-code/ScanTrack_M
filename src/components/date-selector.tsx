@@ -71,6 +71,8 @@ const styles = StyleSheet.create({
   },
   dateDisplay: {
     flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   label: {
@@ -80,6 +82,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   date: {
+    textAlign: 'center',
     fontSize: 14,
     fontWeight: '800',
     color: '#172A43',

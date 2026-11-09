@@ -4,7 +4,13 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { ensureApiBasePath } from '@/utils/apiUrl';
+import { getManagerDriverPage } from '@/utils/managerDrivers';
+import { confirmQrScanResponse, type QueueAction } from '@/utils/driverQueue';
+import { notifyQueueUpdated } from './queueUpdates';
+import { apiRequestStarted, apiRequestSucceeded, apiRequestFailed } from './connection';
+import { QueueMutationGuard } from '@/utils/queueMutation';
 import type { DriverRegistrationRequest } from '@/types';
+import type { IssueType } from '@/types/issue';
 
 const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 const driverLoginEndpoint = process.env.EXPO_PUBLIC_DRIVER_LOGIN_ENDPOINT?.trim() || '/login';
@@ -99,6 +105,8 @@ function isManagerProfileEndpoint(url: string) {
 class ApiService {
   private axiosInstance: AxiosInstance;
   private token: string | null = null;
+  private managerMutation = new QueueMutationGuard();
+  private driverMutation = new QueueMutationGuard();
   private unauthorizedHandler: (() => Promise<void> | void) | null = null;
 
   get baseUrl() {
@@ -122,6 +130,7 @@ class ApiService {
     // Add token to every request if available
     this.axiosInstance.interceptors.request.use(
       async (config) => {
+        apiRequestStarted();
         console.log('[API] request', config.method?.toUpperCase(), `${API_BASE_URL}${config.url || ''}`);
         const token = await this.getStoredToken();
         if (token) {
@@ -136,11 +145,13 @@ class ApiService {
 
     this.axiosInstance.interceptors.response.use(
       (response) => {
+        apiRequestSucceeded();
         console.log('[API] response', response.status, response.config.url);
         return response;
       },
       (error) => {
         const status = error.response?.status;
+        apiRequestFailed(error);
         const requestUrl = error.config?.url || '';
         const isMissingNotificationRoute = status === 404 && isNotificationEndpoint(requestUrl);
         const isMissingPasswordOtpRoute = status === 404 && isPasswordOtpEndpoint(requestUrl);
@@ -299,12 +310,20 @@ class ApiService {
     return response.data;
   }
 
-  async scanQrIdentifier(qrIdentifier: string) {
+  async scanQrIdentifier(qrIdentifier: string, action: QueueAction = 'join') {
+    return this.managerMutation.run(() => this.getManagerQueue(), async () => {
     const response = await this.axiosInstance.post(
       normalizeApiEndpoint(managerQrScanEndpoint),
-      { qr_identifier: qrIdentifier },
-      { validateStatus: (status) => (status >= 200 && status < 300) || status === 422 },
+      { qr_identifier: qrIdentifier.trim(), queue_action: action },
     );
+    const result = confirmQrScanResponse(response.data, action);
+    notifyQueueUpdated();
+    return result;
+    });
+  }
+
+  async getManagerQueue() {
+    const response = await this.axiosInstance.get('/manager/queue');
     return response.data;
   }
 
@@ -339,7 +358,82 @@ class ApiService {
   }
 
   async getManagerDrivers() {
-    const response = await this.axiosInstance.get('/manager/drivers');
+    const drivers: unknown[] = [];
+    let page = 1;
+    let lastPage = 1;
+    do {
+      const response = await this.axiosInstance.get('/manager/drivers', { params: { page } });
+      const result = getManagerDriverPage(response.data);
+      drivers.push(...result.records);
+      lastPage = result.lastPage;
+      if (lastPage < page) {
+        throw new Error('The manager drivers API returned invalid pagination.');
+      }
+      page += 1;
+    } while (page <= lastPage);
+    return { drivers };
+  }
+
+  async removeQueueDriver(entryId: string, reason: 'left_terminal' | 'other', details: string) {
+    return this.managerMutation.run(() => this.getManagerQueue(), async () => {
+    const response = await this.axiosInstance.post(`/manager/queue/${encodeURIComponent(entryId)}/remove`, {
+      reason, details: reason === 'other' ? details.trim() : null,
+    });
+    if (response.data?.success !== true) throw new Error('The server did not confirm removal. Refresh the queue before trying again.');
+    notifyQueueUpdated();
+    return response.data;
+    });
+  }
+
+  async getDailyManagerReport(date: string) {
+    return (await this.axiosInstance.get('/manager/reports/daily', { params: { date } })).data;
+  }
+
+  async getIssues(role: 'manager' | 'driver', page = 1) {
+    return (await this.axiosInstance.get(`/${role}/issues`, { params: { page } })).data;
+  }
+
+  async submitIssue(data: { type: IssueType; explanation: string; queue_entry_id: number | null; client_request_id: string; attachments?: { uri: string; name: string; type: string; file?: File }[] }) {
+    return this.driverMutation.run(() => this.getIssues('driver'), async () => {
+      let body: typeof data | FormData = data;
+      if (data.attachments?.length) {
+        const form = new FormData();
+        form.append('type', data.type);
+        form.append('explanation', data.explanation);
+        form.append('client_request_id', data.client_request_id);
+        if (data.queue_entry_id != null) form.append('queue_entry_id', String(data.queue_entry_id));
+        for (const file of data.attachments) {
+          if (Platform.OS === 'web') {
+            form.append('attachments[]', file.file ?? await (await fetch(file.uri)).blob(), file.name);
+          } else {
+            form.append('attachments[]', { uri: file.uri, name: file.name, type: file.type } as any);
+          }
+        }
+        body = form;
+      }
+      const response = await this.axiosInstance.post('/driver/issues', body, body instanceof FormData
+        ? { headers: { 'Content-Type': 'multipart/form-data' } } : undefined);
+      if (response.data?.success !== true) throw new Error('The server did not confirm the request. Refresh My Requests.');
+      return response.data;
+    });
+  }
+
+  async decideIssue(id: number, decision: 'approved' | 'rejected', reason: string, removesFromQueue = true) {
+    return this.managerMutation.run(() => Promise.all([this.getManagerQueue(), this.getIssues('manager')]), async () => {
+      const response = await this.axiosInstance.post(`/manager/issues/${id}/decision`, { decision, decision_reason: reason.trim(), confirm_removal: decision === 'approved' && removesFromQueue });
+      if (response.data?.success !== true) throw new Error('The server did not confirm the decision. Refresh the requests.');
+      notifyQueueUpdated();
+      return response.data;
+    });
+  }
+
+  async getQueueRemovalActivity(page = 1) {
+    const response = await this.axiosInstance.get('/manager/queue/removals', { params: { page } });
+    return response.data;
+  }
+
+  async getMyToda() {
+    const response = await this.axiosInstance.get('/driver/toda');
     return response.data;
   }
 
@@ -558,16 +652,22 @@ class ApiService {
   }
 
   async startTrip(destinationId: number, passengerCount: number) {
+    return this.driverMutation.run(() => Promise.all([this.getDashboardData(), this.getActiveTrip()]), async () => {
     const response = await this.axiosInstance.post('/driver/trips', {
       destination_id: destinationId,
       passenger_count: passengerCount,
     });
+    notifyQueueUpdated();
     return response.data;
+    });
   }
 
   async completeTrip(tripId: string) {
+    return this.driverMutation.run(() => Promise.all([this.getDashboardData(), this.getActiveTrip()]), async () => {
     const response = await this.axiosInstance.post(`/driver/trips/${encodeURIComponent(tripId)}/complete`);
+    notifyQueueUpdated();
     return response.data;
+    });
   }
 
   async getTripDetails(tripId: string) {

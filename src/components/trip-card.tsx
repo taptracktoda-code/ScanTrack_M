@@ -51,13 +51,13 @@ export function TripCard({
           <ThemedText style={styles.value}>{passengerCount}</ThemedText>
         </View>
         {departureTime && (
-          <View style={{ marginLeft: Spacing.four }}>
+          <View style={styles.timeDetail}>
             <ThemedText style={styles.label}>Departure</ThemedText>
             <ThemedText style={styles.value}>{departureTime}</ThemedText>
           </View>
         )}
         {arrivalTime && (
-          <View style={{ marginLeft: Spacing.four }}>
+          <View style={styles.timeDetail}>
             <ThemedText style={styles.label}>Arrival</ThemedText>
             <ThemedText style={styles.value}>{arrivalTime}</ThemedText>
           </View>
@@ -96,8 +96,11 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.three,
     marginBottom: 12,
   },
+  timeDetail: { flexShrink: 1 },
   label: {
     fontSize: 10,
     color: '#748198',

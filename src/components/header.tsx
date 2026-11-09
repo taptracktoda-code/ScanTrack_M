@@ -36,7 +36,7 @@ export function Header({
     <ThemedView
       style={[
         styles.container,
-        { paddingTop: insets.top + Spacing.three },
+        { paddingTop: insets.top + Spacing.three, paddingLeft: insets.left + 18, paddingRight: insets.right + 18 },
       ]}>
       <View style={isManager ? styles.actionSpacer : styles.driverActionSpacer} />
 

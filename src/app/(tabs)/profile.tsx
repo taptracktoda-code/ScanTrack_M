@@ -1,4 +1,6 @@
-﻿import { StatusBadge } from '@/components';
+import { StatusBadge } from '@/components';
+import { MyToda } from '@/components/my-toda';
+import { SettingsButton } from '@/components/settings-button';
 import { Page, styles } from '@/components/page';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
 import { QrCodeCard } from '@/components/qr-code-card';
@@ -7,13 +9,11 @@ import { useAuth } from '@/context/auth';
 import { apiService } from '@/services/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 export default function ProfileScreen() {
-  const { driver, logout, updateDutyStatus, updateProfile, refreshProfile } = useAuth();
+  const { driver, logout, updateProfile, refreshProfile } = useAuth();
   const router = useRouter();
-  const [statusUpdating, setStatusUpdating] = useState(false);
-  const [statusError, setStatusError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [assignedToda, setAssignedToda] = useState(() => getAssignedTodaName(driver));
@@ -24,7 +24,6 @@ export default function ProfileScreen() {
     status: driver?.qr_status || driver?.qr_code_status || 'unregistered',
   });
   const [qrError, setQrError] = useState<string | null>(null);
-  const isOffDuty = driver?.duty_status === 'off_duty';
 
   useFocusEffect(useCallback(() => {
     let isActive = true;
@@ -45,11 +44,6 @@ export default function ProfileScreen() {
       });
     return () => { isActive = false; };
   }, [driver]));
-
-  const changeDutyStatus = () => {
-    const nextStatus = isOffDuty ? 'on_duty' : 'off_duty';
-    Alert.alert(nextStatus === 'off_duty' ? 'Go Off Duty?' : 'Go On Duty?', nextStatus === 'off_duty' ? 'Are you sure you want to go off duty?' : 'You will be available for attendance again.', [{ text: 'Cancel', style: 'cancel' }, { text: nextStatus === 'off_duty' ? 'Go Off Duty' : 'Go On Duty', onPress: async () => { setStatusUpdating(true); setStatusError(null); try { await updateDutyStatus(nextStatus); } catch { setStatusError('Unable to update your duty status. Please try again.'); } finally { setStatusUpdating(false); } } }]);
-  };
 
   const saveProfile = async () => {
     if (!profile.name.trim()) {
@@ -101,43 +95,36 @@ export default function ProfileScreen() {
 
   return (
     <Page title="My Profile">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={profileStyles.scrollContent} keyboardShouldPersistTaps="handled">
-          <ProfilePicturePicker imageUri={driver?.avatar || null} onChange={uploadAvatar} onRemove={removeAvatar} loading={avatarLoading} />
-          <View style={profileStyles.hero}>
-            <ThemedText style={profileStyles.name}>{driver?.name || 'Driver'}</ThemedText>
-            <ThemedText style={styles.muted}>{driver?.driver_id || 'Driver ID unavailable'}</ThemedText>
-            <View style={profileStyles.badgeRow}><StatusBadge status={driver?.account_status === 'active' ? 'active' : 'off_duty'} label={driver?.account_status || 'Unknown'} /></View>
-          </View>
+      <View style={profileStyles.scrollContent}>
+        <ProfilePicturePicker imageUri={driver?.avatar || null} onChange={uploadAvatar} onRemove={removeAvatar} loading={avatarLoading} />
+        <View style={profileStyles.hero}>
+          <ThemedText style={profileStyles.name}>{driver?.name || 'Driver'}</ThemedText>
+          <ThemedText style={styles.muted}>{driver?.driver_id || 'Driver ID unavailable'}</ThemedText>
+          <View style={profileStyles.badgeRow}><StatusBadge status={driver?.account_status === 'active' ? 'active' : 'off_duty'} label={driver?.account_status || 'Unknown'} /></View>
+        </View>
 
-          <View style={styles.card}>
-            <ProfileField label="Full name" value={profile.name} onChangeText={(value) => setProfile((current) => ({ ...current, name: value }))} />
-            <ProfileField label="Phone" value={profile.phone} keyboardType="phone-pad" onChangeText={(value) => setProfile((current) => ({ ...current, phone: value }))} />
-            <ProfileField label="Email" value={profile.email} keyboardType="email-address" onChangeText={(value) => setProfile((current) => ({ ...current, email: value }))} />
-            <ProfileRow label="Assigned TODA" value={assignedToda || 'Not assigned'} />
-            <ProfileRow label="Assigned Vehicle" value={driver?.vehicle_number || 'Not assigned'} />
-            <ProfileRow label="QR Status" value={qr.status === 'active' ? 'Active' : qr.status === 'unregistered' ? 'Not assigned' : qr.status.replace(/_/g, ' ')} />
-            {profileError ? <ThemedText style={profileStyles.error}>{profileError}</ThemedText> : null}
+        <View style={styles.card}>
+          <ProfileField label="Full name" value={profile.name} onChangeText={(value) => setProfile((current) => ({ ...current, name: value }))} />
+          <ProfileField label="Phone" value={profile.phone} keyboardType="phone-pad" onChangeText={(value) => setProfile((current) => ({ ...current, phone: value }))} />
+          <ProfileField label="Email" value={profile.email} keyboardType="email-address" onChangeText={(value) => setProfile((current) => ({ ...current, email: value }))} />
+          <ProfileRow label="Assigned TODA" value={assignedToda || 'Not assigned'} />
+          <ProfileRow label="Assigned Vehicle" value={driver?.vehicle_number || 'Not assigned'} />
+          <ProfileRow label="QR Status" value={qr.status === 'active' ? 'Active' : qr.status === 'unregistered' ? 'Not assigned' : qr.status.replace(/_/g, ' ')} />
+          {profileError ? <ThemedText style={profileStyles.error}>{profileError}</ThemedText> : null}
+        </View>
+        <MyToda key={driver?.id} />
+        {qr.status === 'active' && qr.identifier ? <QrCodeCard value={qr.identifier} label="My Driver QR Code" /> : (
+          <View style={profileStyles.qrMessage}>
+            <ThemedText style={profileStyles.qrMessageText}>
+              {qrError || (qr.status === 'unregistered' ? 'Your QR code will appear here after your Manager completes your driver account setup.' : 'Your QR code is not active. Please contact your TODA manager.')}
+            </ThemedText>
           </View>
-          {qr.status === 'active' && qr.identifier ? <QrCodeCard value={qr.identifier} label="My Driver QR Code" /> : (
-            <View style={profileStyles.qrMessage}>
-              <ThemedText style={profileStyles.qrMessageText}>
-                {qrError || (qr.status === 'unregistered' ? 'Your QR code will appear here after your Manager completes your driver account setup.' : 'Your QR code is not active. Please contact your TODA manager.')}
-              </ThemedText>
-            </View>
-          )}
+        )}
 
-          <View style={profileStyles.dutyCard}>
-            <View style={profileStyles.dutyHeader}><ThemedText style={profileStyles.dutyLabel}>Driver Status</ThemedText><ThemedText style={[profileStyles.dutyStatus, { color: isOffDuty ? '#64748B' : '#16A34A' }]}>{isOffDuty ? '○ Off Duty' : '● On Duty'}</ThemedText></View>
-            <Pressable onPress={changeDutyStatus} disabled={statusUpdating} style={({ pressed }) => [profileStyles.dutyButton, isOffDuty && profileStyles.onDutyButton, pressed && { opacity: 0.8 }, statusUpdating && { opacity: 0.55 }]}><ThemedText style={[profileStyles.dutyButtonText, isOffDuty && profileStyles.onDutyButtonText]}>{statusUpdating ? 'Updating...' : isOffDuty ? 'Go On Duty' : 'Go Off Duty'}</ThemedText></Pressable>
-            {statusError ? <ThemedText style={profileStyles.statusError}>{statusError}</ThemedText> : null}
-          </View>
-
-          <Pressable onPress={saveProfile} disabled={saving} style={({ pressed }) => [profileStyles.primary, saving && profileStyles.disabled, pressed && { opacity: 0.85 }]}><ThemedText style={profileStyles.primaryText}>{saving ? 'Saving...' : 'Save profile'}</ThemedText></Pressable>
-          <Pressable onPress={() => router.push('/change-password')} style={profileStyles.secondary}><ThemedText style={profileStyles.secondaryText}>Change Password</ThemedText></Pressable>
-          <Pressable onPress={confirmLogout} style={profileStyles.logout}><ThemedText style={profileStyles.logoutText}>Log Out</ThemedText></Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        <Pressable onPress={saveProfile} disabled={saving} style={({ pressed }) => [profileStyles.primary, saving && profileStyles.disabled, pressed && { opacity: 0.85 }]}><ThemedText style={profileStyles.primaryText}>{saving ? 'Saving...' : 'Save profile'}</ThemedText></Pressable>
+        <SettingsButton />
+        <Pressable onPress={confirmLogout} style={profileStyles.logout}><ThemedText style={profileStyles.logoutText}>Log Out</ThemedText></Pressable>
+      </View>
     </Page>
   );
 }
@@ -171,16 +158,7 @@ const profileStyles = StyleSheet.create({
   scrollContent: { paddingBottom: 24 },
   hero: { alignItems: 'center', paddingVertical: 10, marginBottom: 14 },
   badgeRow: { marginTop: 10 },
-  name: { color: '#14243A', fontSize: 23, fontWeight: '800', marginBottom: 5 },
-  dutyCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#E5EBF3' },
-  dutyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  dutyLabel: { color: '#52647B', fontSize: 13, fontWeight: '800' },
-  dutyStatus: { fontSize: 13, fontWeight: '800' },
-  dutyButton: { backgroundColor: '#14243A', borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 14 },
-  dutyButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
-  onDutyButton: { backgroundColor: '#EFF6FF' },
-  onDutyButtonText: { color: '#1D4ED8' },
-  statusError: { color: '#B42318', fontSize: 12, marginTop: 9 },
+  name: { color: '#14243A', fontSize: 23, lineHeight: 30, textAlign: 'center', fontWeight: '800', marginBottom: 5 },
   field: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#EDF1F4' },
   input: { minHeight: 42, color: '#14243A', fontSize: 15, fontWeight: '700', marginTop: 6 },
   row: { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#EDF1F4' },

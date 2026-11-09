@@ -3,8 +3,11 @@ import { AuthProvider } from '@/context/auth';
 import { NotificationsProvider, useNotifications } from '@/context/notifications';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { useEffect } from 'react';
+import { monitorConnection } from '@/services/connection';
 
 function AppShell() {
+  useEffect(monitorConnection, []);
   const { isPanelOpen, closePanel } = useNotifications();
   return (
     <>

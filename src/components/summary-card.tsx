@@ -48,13 +48,14 @@ export function SummaryCard({
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
+    minWidth: 0,
     borderRadius: 17,
     padding: 14,
     borderWidth: 1,
     alignItems: 'flex-start',
     justifyContent: 'center',
-    marginHorizontal: 3,
     minHeight: 112,
   },
   icon: {

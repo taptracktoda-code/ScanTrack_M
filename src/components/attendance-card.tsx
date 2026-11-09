@@ -23,7 +23,9 @@ export function AttendanceCard({ label, value, subtext, icon = '🕐' }: Attenda
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 140,
+    minWidth: 0,
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 15,

@@ -16,6 +16,7 @@
     "expo-image": "~58.0.17",
     "expo-image-picker": "~58.0.10",
     "expo-linking": "~58.0.14",
+    "expo-network": "~58.0.4",
     "expo-notifications": "~58.1.8",
     "expo-router": "~58.0.26",
     "expo-secure-store": "~58.0.2",
@@ -39,6 +40,7 @@
   "devDependencies": {
     "@types/jest": "30.0.0",
     "@types/react": "~19.3.0",
+    "@types/react-dom": "^19.3.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
     "jest": "~30.5.2",
@@ -52,10 +54,15 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "jest"
+    "test": "jest",
+    "test:ui": "jest --config jest.ui.config.cjs --runInBand"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "settings-flow.web.test.tsx"
+    ]
   },
   "private": true
 }

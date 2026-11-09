@@ -6,6 +6,9 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { AppState, Platform } from 'react-native';
+import { useRootNavigationState, useRouter } from 'expo-router';
+import { notificationTarget } from '@/utils/notificationTarget';
+import { notifyQueueUpdated } from '@/services/queueUpdates';
 
 interface NotificationsContextValue {
   notifications: Notification[];
@@ -19,6 +22,7 @@ interface NotificationsContextValue {
   refresh: () => Promise<void>;
   markAsRead: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
+  openNotification: (data?: Record<string, unknown>) => void;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
@@ -44,8 +48,17 @@ function createAccountNotificationState(accountKey: string | null): AccountNotif
 }
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const navigation = useRootNavigationState();
+  const lastOpened = useRef<string | null>(null);
   const { isManager, isLoading: authLoading, isSignedIn, user } = useAuth();
   const role: 'manager' | 'driver' = isManager ? 'manager' : 'driver';
+  const openNotification = useCallback((data?: Record<string, unknown>) => {
+    const target = notificationTarget(data, isManager);
+    notifyQueueUpdated();
+    if (target) { setIsPanelOpen(false); router.push(target); }
+    else setIsPanelOpen(true);
+  }, [isManager, router]);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const refreshToken = useRef(0);
   const accountKey = isSignedIn ? `${role}:${user?.id || user?.email || ''}` : null;
@@ -147,21 +160,30 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [authLoading, isSignedIn, role, accountKey, updateAccountState]);
 
   useEffect(() => {
-    if (authLoading || !isSignedIn || Platform.OS === 'web') return;
+    if (authLoading || !isSignedIn || Platform.OS === 'web' || !navigation?.key) return;
 
     const receivedSubscription = Notifications.addNotificationReceivedListener(() => {
+      notifyQueueUpdated();
       void refresh();
     });
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(() => {
-      setIsPanelOpen(true);
+    const handleResponse = (response: Notifications.NotificationResponse) => {
+      const id = response.notification.request.identifier;
+      if (lastOpened.current === id) return;
+      lastOpened.current = id;
+      openNotification(response.notification.request.content.data);
       void refresh();
-    });
+      void Notifications.clearLastNotificationResponseAsync();
+    };
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    let active = true;
+    void Notifications.getLastNotificationResponseAsync().then(response => { if (active && response) handleResponse(response); });
 
     return () => {
+      active = false;
       receivedSubscription.remove();
       responseSubscription.remove();
     };
-  }, [authLoading, isSignedIn, refresh]);
+  }, [authLoading, isSignedIn, refresh, navigation?.key, openNotification]);
 
   useEffect(() => {
     if (authLoading || !isSignedIn || endpointUnavailable) return;
@@ -256,6 +278,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       refresh,
       markAsRead,
       markAllAsRead,
+      openNotification,
     }}>
       {children}
     </NotificationsContext.Provider>

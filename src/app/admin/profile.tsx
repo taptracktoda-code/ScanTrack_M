@@ -1,4 +1,5 @@
 import { StatusBadge } from '@/components';
+import { SettingsButton } from '@/components/settings-button';
 import { Page } from '@/components/page';
 import { ProfilePicturePicker } from '@/components/profile-picture-picker';
 import { ThemedText } from '@/components/themed-text';
@@ -6,7 +7,7 @@ import { useAuth } from '@/context/auth';
 import { apiService } from '@/services/api';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 export default function AdminProfileScreen() {
   const { user, logout, updateProfile, refreshProfile } = useAuth();
@@ -111,7 +112,7 @@ export default function AdminProfileScreen() {
 
   return (
     <Page title="Manager Profile">
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <View>
         <View style={profileStyles.content}>
           <View style={profileStyles.accountCard}>
           <ProfilePicturePicker imageUri={avatar} onChange={uploadAvatar} onRemove={removeAvatar} loading={avatarLoading} />
@@ -156,11 +157,13 @@ export default function AdminProfileScreen() {
             </View>
             <ThemedText style={profileStyles.chevron}>›</ThemedText>
           </Pressable>
+          <SettingsButton />
+          <Pressable accessibilityRole="button" onPress={() => router.push('/manager-attendance')} style={profileStyles.securityRow}><ThemedText style={profileStyles.securityTitle}>Attendance</ThemedText></Pressable>
           <Pressable onPress={confirmLogout} style={({ pressed }) => [profileStyles.logout, pressed && { opacity: 0.8 }]}>
             <ThemedText style={profileStyles.logoutText}>Log out of account</ThemedText>
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Page>
   );
 }

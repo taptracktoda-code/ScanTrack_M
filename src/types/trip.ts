@@ -17,6 +17,7 @@ export interface Trip {
 }
 
 export interface TripSummary {
+  today_completed_trips: number;
   total_trips: number;
   completed_trips: number;
   cancelled_trips: number;

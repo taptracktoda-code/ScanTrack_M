@@ -1,5 +1,6 @@
 import { Page } from '@/components/page';
 import { ThemedText } from '@/components/themed-text';
+import { getDriverQueue, type QueueAction } from '@/utils/driverQueue';
 import { apiService } from '@/services/api';
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -44,12 +45,15 @@ function getScanFailureTitle(message: string) {
 }
 
 function getErrorResult(error: any): ScanResult {
+  if (error?.name === 'ScanConfirmationError') {
+    return { success: false, title: 'Queue Not Confirmed', message: error.message };
+  }
   const status = error?.response?.status;
   const message = error?.response?.data?.message || error?.message || 'Unable to connect to the Tap Track server.';
   const normalized = String(message).toLowerCase();
 
   if (!error?.response) {
-    return { success: false, title: 'Connection Error', message: 'Unable to connect to the Tap Track server. Please check your network connection.' };
+    return { success: false, title: 'Connection Error', message: 'The server response could not be received. Queue registration is unconfirmed. Check your connection and refresh the queue before scanning again.' };
   }
   if (status === 401 || status === 403 || normalized.includes('unauthorized') || normalized.includes('permission')) {
     return { success: false, title: 'Access Denied', message: 'You do not have permission to perform this action.' };
@@ -61,12 +65,13 @@ function getErrorResult(error: any): ScanResult {
     return { success: false, title: 'Driver Inactive', message: 'This driver is currently not active.' };
   }
 
-  return { success: false, title: 'Scan Failed', message };
+  return { success: false, title: getScanFailureTitle(message), message };
 }
 
 export default function AdminScanScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
+  const [queueAction, setQueueAction] = useState<QueueAction>('join');
   const [isFocused, setIsFocused] = useState(false);
   const [isScanning, setIsScanning] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -90,7 +95,7 @@ export default function AdminScanScreen() {
     setLastScanned(qrValue);
 
     try {
-      const response = await apiService.scanQrIdentifier(qrValue);
+      const response = await apiService.scanQrIdentifier(qrValue, queueAction);
       const payload = response?.data || response || {};
       const driver = payload.driver || payload.data?.driver || {};
       const validationErrors = payload.errors && typeof payload.errors === 'object'
@@ -99,16 +104,17 @@ export default function AdminScanScreen() {
       const transaction = payload.transaction || payload.data?.transaction || payload.transaction_type || payload.type || 'ENTRY';
       const timestamp = payload.timestamp || payload.data?.timestamp || payload.created_at;
       const transactionText = (getText(transaction, 'ENTRY') || 'ENTRY').toUpperCase();
-      const succeeded = payload.success !== false;
+      const succeeded = payload.success === true;
+      const queue = getDriverQueue(payload.queue);
       const driverName = getText(driver.name, getText(payload.driver_name, 'Unknown Driver'));
-      const plateNumber = getText(driver.plate_number, getText(driver.vehicle_number, getText(payload.plate_number, payload.vehicle_number)));
+      const plateNumber = getText(driver.plate_number, getText(driver.vehicle_number, getText(payload.vehicle?.plate_number, getText(payload.plate_number, payload.vehicle_number))));
       const organization = getText(payload.organization, getText(payload.data?.organization, driver.organization));
 
       setResult({
         success: succeeded,
         title: succeeded ? 'DONE' : getScanFailureTitle(getText(payload.message, validationErrors[0]) || 'Scan could not be recorded.'),
         message: succeeded
-          ? `${transactionText} recorded successfully.`
+          ? queueAction === 'join' ? `Joined the waiting queue. Position #${queue.position}. Drivers waiting: ${queue.waitingCount ?? 'Unavailable'}.` : 'Terminal exit recorded. You are no longer in the waiting queue.'
           : [...(getText(payload.message) ? [getText(payload.message)!] : []), ...validationErrors].join(' ') || 'Scan could not be recorded.',
         driverName,
         plateNumber,
@@ -149,6 +155,13 @@ export default function AdminScanScreen() {
 
   return (
     <Page title="Scan Driver QR Code">
+      <View style={styles.actionRow}>
+        {(['join', 'exit'] as const).map((action) => (
+          <Pressable key={action} accessibilityRole="button" accessibilityState={{ selected: queueAction === action }} disabled={isProcessing || !isScanning} onPress={() => setQueueAction(action)} style={[styles.actionButton, queueAction === action && styles.actionSelected]}>
+            <ThemedText style={[styles.actionText, queueAction === action && styles.actionSelectedText]}>{action === 'join' ? 'Join queue' : 'Record exit'}</ThemedText>
+          </Pressable>
+        ))}
+      </View>
       <View style={styles.previewWrap}>
         {isFocused && isScanning ? (
           <CameraView
@@ -164,7 +177,7 @@ export default function AdminScanScreen() {
             }}
           />
         ) : null}
-        <View style={styles.frame} />
+        <View pointerEvents="none" style={styles.frameArea}><View style={styles.frame} /></View>
         {isFocused && isScanning ? (
           <Pressable onPress={() => setTorchEnabled((enabled) => !enabled)} style={styles.torchButton}>
             <ThemedText style={styles.torchButtonText}>{torchEnabled ? 'Turn light off' : 'Turn light on'}</ThemedText>
@@ -204,9 +217,15 @@ function ResultRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  previewWrap: { height: 420, borderRadius: 18, overflow: 'hidden', backgroundColor: '#0F172A', marginBottom: 18 },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 14 },
+  actionButton: { padding: 12, borderRadius: 12, backgroundColor: '#EFF6FF', minHeight: 44 },
+  actionSelected: { backgroundColor: '#1D4ED8' },
+  actionText: { color: '#1D4ED8', fontWeight: '700' },
+  actionSelectedText: { color: '#FFFFFF' },
+  previewWrap: { height: 420, width: '100%', maxWidth: 480, alignSelf: 'center', borderRadius: 18, overflow: 'hidden', backgroundColor: '#0F172A', marginBottom: 18 },
   camera: { flex: 1 },
-  frame: { position: 'absolute', top: '50%', left: '50%', width: 240, height: 240, marginLeft: -120, marginTop: -130, borderWidth: 2, borderColor: '#FFF', borderRadius: 18 },
+  frameArea: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center', paddingBottom: 20 },
+  frame: { width: '72%', maxWidth: 240, aspectRatio: 1, borderWidth: 2, borderColor: '#FFF', borderRadius: 18 },
   torchButton: { position: 'absolute', top: 14, right: 14, backgroundColor: 'rgba(15, 23, 42, 0.72)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
   torchButtonText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
   caption: { position: 'absolute', left: 16, right: 16, bottom: 18, backgroundColor: 'rgba(15, 23, 42, 0.72)', borderRadius: 10, padding: 12 },

@@ -1,30 +1,27 @@
-import { AttendanceCard, AttendanceRecord, EmptyState, StatusCard } from '@/components';
+import { AttendanceCard, AttendanceRecord, EmptyState, StatusCard, SummaryCard } from '@/components';
 import { Page, styles, useApi } from '@/components/page';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/context/auth';
+import { useQueueRefresh } from '@/hooks/use-queue-refresh';
+import { getDriverQueue } from '@/utils/driverQueue';
 import { apiService } from '@/services/api';
 import type { AttendanceRecord as AttendanceRecordType } from '@/types';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 export default function DashboardScreen() {
   const { driver, updateDutyStatus } = useAuth();
   const router = useRouter();
   const request = useCallback(() => apiService.getDashboardData(), []);
-  const { data, loading, error, retry, refresh, refreshing } = useApi<any>(request, {});
-  const hasFocused = useRef(false);
-  useFocusEffect(useCallback(() => {
-    if (hasFocused.current) refresh();
-    else hasFocused.current = true;
-    const interval = setInterval(refresh, 15000);
-    return () => clearInterval(interval);
-  }, [refresh]));
+  const { data, loading, error, retry, refresh, refreshing, lastSuccess } = useApi<any>(request, {});
+  useQueueRefresh(refresh);
   const dashboard = data?.data || data || {};
   const attendance = dashboard.attendance || dashboard.today_attendance || {};
   const records: AttendanceRecordType[] = dashboard.recent_records || dashboard.records || [];
   const status = attendance.status || dashboard.status || 'not_checked_in';
-  const dailyPosition = getDailyPosition(dashboard, records, driver?.id, driver?.name);
+  const queue = getDriverQueue(dashboard.queue);
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const dutyStatus = driver?.duty_status || dashboard.duty_status || dashboard.driver?.duty_status || 'on_duty';
@@ -48,16 +45,28 @@ export default function DashboardScreen() {
   };
   const copy = statusCopy[status] || statusCopy.not_checked_in;
 
-  return <Page title="" loading={loading} error={error} onRetry={retry} onRefresh={refresh} refreshing={refreshing}>
+  return <Page title="" loading={loading && !lastSuccess} error={lastSuccess ? null : error} onRetry={retry} onRefresh={refresh} refreshing={refreshing}>
     <View style={dashStyles.greeting}><ThemedText style={dashStyles.hello}>Hello, {driver?.name?.split(' ')[0] || 'Driver'}</ThemedText><ThemedText style={styles.muted}>Welcome back!</ThemedText></View>
-    <Pressable onPress={() => router.push('/my-qr')} style={({ pressed }) => [dashStyles.qrButton, pressed && { opacity: 0.85 }]}>
-      <ThemedText style={dashStyles.qrButtonIcon}>▦</ThemedText>
+    <Pressable accessibilityRole="button" accessibilityLabel="View My QR Code" onPress={() => router.push('/my-qr')} style={({ pressed }) => [dashStyles.qrButton, pressed && { opacity: 0.85 }]}>
+      <View style={dashStyles.qrButtonIcon}>
+        <SymbolView name={{ ios: 'qrcode', android: 'qr_code', web: 'qr_code' }} tintColor="#FFFFFF" size={28} />
+      </View>
       <View style={dashStyles.qrButtonCopy}>
         <ThemedText style={dashStyles.qrButtonTitle}>View My QR Code</ThemedText>
         <ThemedText style={dashStyles.qrButtonHint}>Show your code at the terminal</ThemedText>
       </View>
-      <ThemedText style={dashStyles.qrButtonArrow}>›</ThemedText>
+      <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} tintColor="#FFFFFF" size={24} />
     </Pressable>
+    <View style={dashStyles.dutyCard}>
+      <ThemedText style={dashStyles.dutyLabel}>My Queue</ThemedText>
+      <ThemedText accessibilityLiveRegion="polite" style={dashStyles.summaryValue}>{queue.label}</ThemedText>
+      <ThemedText style={dashStyles.dutyMessage}>{queue.position ? `Position #${queue.position}` : queue.status === 'SERVING' ? 'You are currently on a trip.' : queue.status === 'COMPLETED' ? 'Your trip is complete. Show your QR code to join again.' : queue.status === 'CANCELLED' || queue.label === 'Not in Queue' ? 'Show your QR code to your manager to join the queue.' : 'Current queue information is unavailable.'}</ThemedText>
+      <ThemedText style={dashStyles.dutyMessage}>Drivers waiting: {queue.waitingCount ?? 'Unavailable'}</ThemedText>
+      <ThemedText style={dashStyles.dutyMessage}>Waiting drivers ahead: {queue.driversAhead ?? 'Not applicable'}</ThemedText>
+      <ThemedText style={styles.muted}>Last successful queue update: {lastSuccess ? new Date(lastSuccess).toLocaleTimeString() : 'Not yet updated'}</ThemedText>
+      {error && <ThemedText accessibilityRole="alert" style={{ color: '#B42318', marginTop: 8 }}>Queue information may be outdated. {error}</ThemedText>}
+      <ThemedText style={styles.muted}>Updates every 5 seconds while open.</ThemedText>
+    </View>
     <StatusCard status={status} title={copy.subtitle} subtitle={copy.title} message={copy.message} />
     <View style={dashStyles.dutyCard}>
       <View style={dashStyles.dutyHeader}><ThemedText style={dashStyles.dutyLabel}>Driver Status</ThemedText><ThemedText style={[dashStyles.dutyStatus, { color: isOffDuty ? '#64748B' : '#16A34A' }]}>{isOffDuty ? '○ Off Duty' : '● On Duty'}</ThemedText></View>
@@ -65,7 +74,11 @@ export default function DashboardScreen() {
       <Pressable onPress={changeDutyStatus} disabled={statusUpdating} style={({ pressed }) => [dashStyles.dutyButton, isOffDuty && dashStyles.onDutyButton, pressed && { opacity: 0.8 }, statusUpdating && { opacity: 0.55 }]}><ThemedText style={[dashStyles.dutyButtonText, isOffDuty && dashStyles.onDutyButtonText]}>{statusUpdating ? 'Updating...' : isOffDuty ? 'Go On Duty' : 'Go Off Duty'}</ThemedText></Pressable>
       {statusError ? <ThemedText style={dashStyles.statusError}>{statusError}</ThemedText> : null}
     </View>
-    <View style={dashStyles.summary}><View style={dashStyles.summaryItem}><ThemedText style={dashStyles.summaryIcon}>●</ThemedText><View><ThemedText style={dashStyles.summaryLabel}>My Daily Position</ThemedText><ThemedText style={dashStyles.summaryValue}>{dailyPosition ? `#${dailyPosition}` : '—'}</ThemedText><ThemedText style={dashStyles.summaryHint}>{dailyPosition ? 'Position in the queue today' : 'Position unavailable'}</ThemedText></View></View><View style={dashStyles.divider} /><View style={dashStyles.summaryItem}><ThemedText style={dashStyles.summaryIcon}>▣</ThemedText><View><ThemedText style={dashStyles.summaryLabel}>Total Trips</ThemedText><ThemedText style={dashStyles.summaryValue}>{dashboard.total_trips ?? '—'}</ThemedText><ThemedText style={dashStyles.summaryHint}>Total trips riding</ThemedText></View></View></View>
+    <View style={styles.grid}>
+      <SummaryCard label="Today's Completed Trips" value={dashboard.today_completed_trips ?? '—'} color="blue" icon="✓" />
+      <SummaryCard label="Lifetime Total Trips" value={dashboard.total_trips ?? '—'} color="green" icon="↔" />
+    </View>
+    <ThemedText style={[styles.muted, { marginVertical: 10 }]}>Today uses Philippine time. Lifetime total includes completed, cancelled, and ongoing trips.</ThemedText>
     <ThemedText style={styles.sectionTitle}>Today&apos;s Attendance</ThemedText>
     <View style={styles.grid}><AttendanceCard label="Entry Time" value={attendance.entry_time ? new Date(attendance.entry_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '--:-- --'} subtext={attendance.entry_time ? 'Verified by terminal' : 'Not yet recorded'} icon="↗" /><AttendanceCard label="Exit Time" value={attendance.exit_time ? new Date(attendance.exit_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '--:-- --'} subtext={attendance.exit_time ? 'Verified by terminal' : 'Not yet recorded'} icon="↘" /></View>
     {!attendance.exit_time && attendance.entry_time ? <View style={dashStyles.notice}><ThemedText style={dashStyles.noticeText}>Please present your QR code at the terminal scanner before checking out.</ThemedText></View> : null}
@@ -77,13 +90,12 @@ const dashStyles = StyleSheet.create({
   greeting: { marginBottom: 18 },
   hello: { color: '#14243A', fontSize: 26, lineHeight: 32, fontWeight: '800', marginBottom: 4, letterSpacing: -0.4 },
   qrButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1D4ED8', borderRadius: 18, padding: 16, marginBottom: 16 },
-  qrButtonIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.16)', color: '#FFFFFF', fontSize: 25, textAlign: 'center', lineHeight: 46, marginRight: 13 },
+  qrButtonIcon: { width: 46, height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center', marginRight: 13 },
   qrButtonCopy: { flex: 1 },
   qrButtonTitle: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   qrButtonHint: { color: '#DBEAFE', fontSize: 11, marginTop: 4 },
-  qrButtonArrow: { color: '#FFFFFF', fontSize: 28, fontWeight: '500' },
   dutyCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#E5EBF3' },
-  dutyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dutyHeader: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center' },
   dutyLabel: { color: '#52647B', fontSize: 13, fontWeight: '800' },
   dutyStatus: { fontSize: 13, fontWeight: '800' },
   dutyMessage: { color: '#748198', fontSize: 12, lineHeight: 18, marginTop: 9 },
@@ -102,23 +114,3 @@ const dashStyles = StyleSheet.create({
   notice: { backgroundColor: '#EFF6FF', borderRadius: 14, padding: 13, marginTop: 2, borderWidth: 1, borderColor: '#DBEAFE' },
   noticeText: { color: '#1E40AF', fontSize: 12, lineHeight: 18 },
 });
-function getDailyPosition(dashboard: any, records: AttendanceRecordType[], driverId?: string, driverName?: string) {
-  const suppliedPosition = dashboard.daily_position ?? dashboard.queue_position ?? dashboard.position ?? dashboard.rank;
-  if (typeof suppliedPosition === 'number' && suppliedPosition > 0) return suppliedPosition;
-
-  const queue = dashboard.daily_queue || dashboard.queue || dashboard.drivers || dashboard.active_drivers;
-  if (Array.isArray(queue)) {
-    const orderedQueue = [...queue].sort((left, right) => {
-      const leftTime = new Date(left.entry_time || left.timestamp || left.created_at || 0).getTime();
-      const rightTime = new Date(right.entry_time || right.timestamp || right.created_at || 0).getTime();
-      return leftTime - rightTime;
-    });
-    const index = orderedQueue.findIndex((item) => String(item.id || item.driver_id || item.driver?.id) === String(driverId) || (driverName && String(item.name || item.driver_name || item.driver?.name).toLowerCase() === driverName.toLowerCase()));
-    if (index >= 0) return index + 1;
-  }
-
-  const today = new Date().toDateString();
-  const todayEntries = records.filter((record) => record.entry_time && new Date(record.entry_time).toDateString() === today).sort((left, right) => new Date(left.entry_time || 0).getTime() - new Date(right.entry_time || 0).getTime());
-  const ownEntry = todayEntries.findIndex((record) => String(record.driver_id) === String(driverId));
-  return ownEntry >= 0 ? ownEntry + 1 : undefined;
-}

@@ -1,0 +1,12 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const filename = path.join(__dirname, 'app/Http/Controllers/Api/TodaQueueController.php');
+let code = fs.readFileSync(filename, 'utf8');
+const start = code.indexOf('        DB::transaction(');
+const end = code.indexOf('\n\n        return response()->json', start);
+if (start < 0 || end < 0) throw new Error('Expected removal transaction missing');
+code = code.slice(0, start) + "        app(\\App\\Services\\QueueRemovalService::class)->remove($manager, $entry, $attributes['reason'], $attributes['details'] ?? null);" + code.slice(end);
+for (const name of ['DriverLog', 'TerminalActivity', 'Trip']) code = code.replace(`use App\\Models\\${name};\n`, '');
+code = code.replace('use Illuminate\\Support\\Facades\\DB;\n', '').replace('use Illuminate\\Validation\\ValidationException;\n', '').replace('use App\\Services\\MobileNotificationService;\n', '');
+code = code.replace('OrganizationQueueEntry $entry, MobileNotificationService $notifications', 'OrganizationQueueEntry $entry');
+fs.writeFileSync(filename, code);

@@ -195,9 +195,11 @@ export default function TripsScreen() {
     >
       <ThemedText style={tripStyles.liveHint}>Trip updates refresh every 10 seconds while this screen is open.</ThemedText>
       <View style={styles.grid}>
-        <SummaryCard label="Total Trips" value={summary.total_trips ?? '—'} color="green" icon="↔" />
+        <SummaryCard label="Lifetime Total Trips" value={summary.total_trips ?? '—'} color="green" icon="↔" />
+        <SummaryCard label="Today's Completed Trips" value={summary.today_completed_trips ?? '—'} color="blue" icon="✓" />
         <SummaryCard label="Completed" value={summary.completed_trips ?? '—'} color="blue" icon="✓" />
       </View>
+      <ThemedText style={styles.muted}>Today uses Philippine time. Lifetime total includes completed, cancelled, and ongoing trips.</ThemedText>
       <View style={[styles.grid, tripStyles.summarySecondRow]}>
         <SummaryCard label="In Progress" value={summary.in_progress_trips ?? '—'} color="orange" icon="◷" />
         <SummaryCard label="Cancelled" value={summary.cancelled_trips ?? '—'} color="red" icon="×" />
@@ -293,16 +295,16 @@ const tripStyles = StyleSheet.create({
   cardHint: { color: '#748198', fontSize: 12, marginTop: 5 },
   field: { marginTop: 14 },
   fieldLabel: { color: '#33404D', fontSize: 12, fontWeight: '700', marginBottom: 7 },
-  destinationOption: { minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#DFE6ED', borderRadius: 12, paddingHorizontal: 13, marginTop: 8, backgroundColor: '#F8FAFC' },
+  destinationOption: { minHeight: 46, paddingVertical: 10, gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#DFE6ED', borderRadius: 12, paddingHorizontal: 13, marginTop: 8, backgroundColor: '#F8FAFC' },
   destinationOptionSelected: { borderColor: '#208AEF', backgroundColor: '#EFF6FF' },
-  destinationText: { color: '#33404D', fontSize: 14, fontWeight: '600' },
+  destinationText: { flex: 1, minWidth: 0, color: '#33404D', fontSize: 14, fontWeight: '600' },
   destinationTextSelected: { color: '#1D4ED8', fontWeight: '800' },
   selectedMark: { color: '#1D4ED8', fontSize: 11, fontWeight: '800' },
   noDestinations: { color: '#A16207', fontSize: 12, lineHeight: 18, marginTop: 8, padding: 12, backgroundColor: '#FFFBEB', borderRadius: 12 },
-  input: { height: 48, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#DFE6ED', borderRadius: 12, paddingHorizontal: 13, fontSize: 14, color: '#14212B' },
-  startButton: { height: 50, borderRadius: 13, backgroundColor: '#208AEF', alignItems: 'center', justifyContent: 'center', marginTop: 18 },
+  input: { minHeight: 48, paddingVertical: 10, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#DFE6ED', borderRadius: 12, paddingHorizontal: 13, fontSize: 14, color: '#14212B' },
+  startButton: { minHeight: 50, padding: 12, borderRadius: 13, backgroundColor: '#208AEF', alignItems: 'center', justifyContent: 'center', marginTop: 18 },
   startButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
-  completeButton: { height: 50, borderRadius: 13, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  completeButton: { minHeight: 50, padding: 12, borderRadius: 13, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   completeButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.55 },

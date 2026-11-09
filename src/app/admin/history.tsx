@@ -1,4 +1,7 @@
 import { EmptyState } from '@/components';
+import { ErrorState } from '@/components/error-state';
+import { LoadingState } from '@/components/loading-state';
+import { QueueRemovalActivity } from '@/components/queue-removal-activity';
 import { Page, styles, useApi } from '@/components/page';
 import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
@@ -84,8 +87,9 @@ export default function AdminHistoryScreen() {
   }, [refresh]));
 
   return (
-    <Page title="Activity" loading={loading} error={error} onRetry={retry} onRefresh={refresh} refreshing={refreshing}>
-      {driverHistory.length ? driverHistory.map((record) => (
+    <Page title="Activity" onRefresh={refresh} refreshing={refreshing}>
+      <QueueRemovalActivity />
+      {loading ? <LoadingState message="Loading scan history..." /> : error ? <ErrorState message={error} onRetry={retry} /> : driverHistory.length ? driverHistory.map((record) => (
         <View key={record.key} style={styles.card}>
           <ThemedText style={{ fontSize: 16, fontWeight: '800', color: '#14212B' }}>{record.name}</ThemedText>
           <ThemedText style={{ color: '#4B5866', marginTop: 5 }}>{record.plate}</ThemedText>

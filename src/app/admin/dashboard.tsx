@@ -2,11 +2,14 @@ import { EmptyState } from '@/components';
 import { Page, useApi } from '@/components/page';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/context/auth';
+import { useQueueRefresh } from '@/hooks/use-queue-refresh';
 import { apiService, MANAGER_DASHBOARD_CONFIGURED } from '@/services/api';
 import type { OrganizationEvent } from '@/types/schedule';
 import type { TripDestination } from '@/types/trip';
+import { getManagerDriverCounts, managerDriverFilters, normalizeManagerDrivers } from '@/utils/managerDrivers';
+import { getScheduleFormError, normalizeScheduleDate, normalizeScheduleTime } from '@/utils/scheduleForm';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 type EventForm = {
@@ -61,6 +64,7 @@ function formatEventTime(value: string) {
 export default function AdminDashboardScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const [hoveredStat, setHoveredStat] = useState<string | null>(null);
   const [managerProfile, setManagerProfile] = useState<any | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [events, setEvents] = useState<OrganizationEvent[]>([]);
@@ -74,7 +78,6 @@ export default function AdminDashboardScreen() {
   const [destinationsLoading, setDestinationsLoading] = useState(true);
   const [savingDestination, setSavingDestination] = useState(false);
   const [destinationError, setDestinationError] = useState<string | null>(null);
-  const hasFocused = useRef(false);
   const loadEvents = useCallback(async () => {
     setEventsLoading(true);
     setEventError(null);
@@ -116,7 +119,7 @@ export default function AdminDashboardScreen() {
     }
 
     const response = remoteData?.data?.data || remoteData?.data || remoteData || {};
-    const driverData = driversResponse?.data?.drivers || driversResponse?.drivers || [];
+    const driverData = normalizeManagerDrivers(driversResponse);
     if (MANAGER_DASHBOARD_CONFIGURED) setLastUpdated(new Date());
     return {
       ...response,
@@ -125,20 +128,18 @@ export default function AdminDashboardScreen() {
   }, []);
   const { data, loading, error, retry, refresh, refreshing } = useApi(request, {} as any);
 
+  useQueueRefresh(refresh);
+
   useFocusEffect(useCallback(() => {
-    if (hasFocused.current) refresh();
-    else hasFocused.current = true;
     void loadEvents();
     void loadTripDestinations();
-    const interval = setInterval(refresh, 15000);
     const eventsInterval = setInterval(loadEvents, 60000);
     const destinationsInterval = setInterval(loadTripDestinations, 60000);
     return () => {
-      clearInterval(interval);
       clearInterval(eventsInterval);
       clearInterval(destinationsInterval);
     };
-  }, [loadEvents, loadTripDestinations, refresh]));
+  }, [loadEvents, loadTripDestinations]));
 
   const response = data?.data || data || {};
   const summary = response.summary || response.dashboard || response.statistics || response;
@@ -150,29 +151,16 @@ export default function AdminDashboardScreen() {
   const todaValue = activeUser?.toda_name || activeUser?.toda?.name || activeUser?.organization_name || activeUser?.organization?.name || activeUser?.association_name || (typeof activeUser?.toda === 'string' ? activeUser.toda : null) || (typeof activeUser?.organization === 'string' ? activeUser.organization : null) || summary.toda_name || summary.toda?.name;
   const todaName = typeof todaValue === 'string' && todaValue.trim() ? todaValue : 'TODA not assigned';
 
-  const statCards = [
-    { label: 'Total drivers', value: summary.total_drivers ?? summary.drivers_total ?? summary.totalDrivers ?? '—', accent: '#2563EB' },
-    { label: 'Active', value: summary.active_drivers ?? summary.drivers_active ?? summary.activeDrivers ?? '—', accent: '#16A34A' },
-    { label: 'Waiting', value: summary.waiting_drivers ?? summary.pending_drivers ?? summary.waitingDrivers ?? '—', accent: '#F59E0B' },
-    { label: 'On trip', value: summary.on_trip ?? summary.trips_active ?? summary.on_trip_drivers ?? summary.onTrip ?? '—', accent: '#14B8A6' },
-  ];
+  const driverCounts = getManagerDriverCounts(drivers);
+  const statCards = managerDriverFilters.map((filter) => ({ ...filter, count: driverCounts[filter.value] }));
 
   const submitEvent = async () => {
-    const eventDate = eventForm.event_date.trim();
-    const dateParts = eventDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    const parsedDate = dateParts ? new Date(Number(dateParts[1]), Number(dateParts[2]) - 1, Number(dateParts[3])) : null;
-    const dateIsValid = Boolean(parsedDate && dateParts
-      && parsedDate.getFullYear() === Number(dateParts[1])
-      && parsedDate.getMonth() === Number(dateParts[2]) - 1
-      && parsedDate.getDate() === Number(dateParts[3]));
-    if (!eventForm.title.trim() || !dateIsValid || !eventForm.location.trim()
-      || !/^\d{2}:\d{2}$/.test(eventForm.start_time)
-      || !/^\d{2}:\d{2}$/.test(eventForm.end_time)) {
-      setEventError('Enter a title, valid date, start and end times, and location.');
-      return;
-    }
-    if (eventForm.end_time <= eventForm.start_time) {
-      setEventError('The end time must be later than the start time.');
+    const validationError = getScheduleFormError(eventForm);
+    const eventDate = normalizeScheduleDate(eventForm.event_date);
+    const startTime = normalizeScheduleTime(eventForm.start_time);
+    const endTime = normalizeScheduleTime(eventForm.end_time);
+    if (validationError || !eventDate || !startTime || !endTime) {
+      setEventError(validationError || 'Check the event details and try again.');
       return;
     }
 
@@ -182,6 +170,9 @@ export default function AdminDashboardScreen() {
       ...eventForm,
       title: eventForm.title.trim(),
       description: eventForm.description.trim(),
+      event_date: eventDate,
+      start_time: startTime,
+      end_time: endTime,
       location: eventForm.location.trim(),
     };
     try {
@@ -273,8 +264,9 @@ export default function AdminDashboardScreen() {
     ]);
   };
 
+  //dashboard
   return (
-    <Page title="Manager Dashboard" loading={loading} error={error} onRetry={retry} onRefresh={refresh} refreshing={refreshing}>
+    <Page title="Welcome back Manager!" loading={loading} error={error} onRetry={retry} onRefresh={refresh} refreshing={refreshing}>
       <View style={screenStyles.heroCard}>
         <View>
           <ThemedText style={screenStyles.eyebrow}>MANAGER</ThemedText>
@@ -285,16 +277,24 @@ export default function AdminDashboardScreen() {
 
       <View style={screenStyles.statsGrid}>
         {statCards.map((card) => (
-          <View key={card.label} style={[screenStyles.statCard, { borderTopColor: card.accent }]}>
+          <Pressable
+            key={card.value}
+            accessibilityRole="button"
+            accessibilityLabel={`${card.label}: ${card.count ?? 'unavailable'}. View drivers`}
+            onPress={() => router.navigate({ pathname: '/admin/driver-registration', params: { status: card.value } })}
+            onHoverIn={() => setHoveredStat(card.value)}
+            onHoverOut={() => setHoveredStat(null)}
+            style={({ pressed }) => [screenStyles.statCard, { borderTopColor: card.accent, cursor: 'pointer' }, hoveredStat === card.value && { backgroundColor: '#EFF6FF' }, pressed && screenStyles.pressedButton]}
+          >
             <ThemedText style={screenStyles.cardLabel}>{card.label}</ThemedText>
-            <ThemedText style={screenStyles.statValue}>{String(card.value)}</ThemedText>
-          </View>
+            <ThemedText style={screenStyles.statValue}>{card.count ?? 'Unavailable'}</ThemedText>
+          </Pressable>
         ))}
       </View>
 
       <ThemedText style={screenStyles.dataStatus}>
         {MANAGER_DASHBOARD_CONFIGURED
-          ? `Auto-refreshes every 15 seconds${lastUpdated ? ` · Updated ${lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
+          ? `Auto-refreshes every 5 seconds${lastUpdated ? ` · Updated ${lastUpdated.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}`
           : 'Live driver counts unavailable: manager dashboard endpoint is not configured.'}
       </ThemedText>
 
@@ -355,26 +355,26 @@ export default function AdminDashboardScreen() {
         </View>
         <View style={screenStyles.eventFieldRow}>
           <View style={screenStyles.eventFieldHalf}>
-            <ThemedText style={screenStyles.inputLabel}>Start time (24-hour)</ThemedText>
+            <ThemedText style={screenStyles.inputLabel}>Start time (e.g. 09:00 or 9:00 AM)</ThemedText>
             <TextInput
               accessibilityLabel="Event start time"
               value={eventForm.start_time}
               onChangeText={(start_time) => setEventForm((form) => ({ ...form, start_time }))}
-              placeholder="09:00"
+              placeholder="09:00 or 9:00 AM"
               placeholderTextColor="#94A3B8"
-              keyboardType="numbers-and-punctuation"
+              keyboardType="default"
               style={screenStyles.eventInput}
             />
           </View>
           <View style={screenStyles.eventFieldHalf}>
-            <ThemedText style={screenStyles.inputLabel}>End time (24-hour)</ThemedText>
+            <ThemedText style={screenStyles.inputLabel}>End time (e.g. 11:00 or 11:00 AM)</ThemedText>
             <TextInput
               accessibilityLabel="Event end time"
               value={eventForm.end_time}
               onChangeText={(end_time) => setEventForm((form) => ({ ...form, end_time }))}
-              placeholder="11:00"
+              placeholder="11:00 or 11:00 AM"
               placeholderTextColor="#94A3B8"
-              keyboardType="numbers-and-punctuation"
+              keyboardType="default"
               style={screenStyles.eventInput}
             />
           </View>
@@ -471,8 +471,8 @@ export default function AdminDashboardScreen() {
             <ThemedText style={screenStyles.viewAll}>History</ThemedText>
           </Pressable>
         </View>
-        <ThemedText style={screenStyles.dataHint}>Duty status is scoped to your assigned TODA and refreshes every 15 seconds.</ThemedText>
-        {drivers.length ? drivers.map((driver: any) => {
+        <ThemedText style={screenStyles.dataHint}>Duty status is scoped to your assigned TODA and refreshes every 5 seconds.</ThemedText>
+        {drivers.length ? [...drivers].sort((a, b) => (a.queue_position ?? Number.MAX_SAFE_INTEGER) - (b.queue_position ?? Number.MAX_SAFE_INTEGER)).map((driver: any) => {
           const isOffDuty = driver.duty_status === 'off_duty' || String(driver.shift_status).toLowerCase() === 'off duty';
           const isOnBreak = String(driver.shift_status).toLowerCase() === 'on break';
           const dutyLabel = isOffDuty ? 'Off Duty' : isOnBreak ? 'On Break' : 'On Duty';
@@ -481,8 +481,9 @@ export default function AdminDashboardScreen() {
           return (
             <View key={driver.id} style={screenStyles.driverStatusRow}>
               <View style={screenStyles.activityCopy}>
-                <ThemedText style={screenStyles.activityName}>{driver.name || 'Driver'}</ThemedText>
-                <ThemedText style={screenStyles.activityMeta}>Plate: {driver.vehicle_number || '—'}</ThemedText>
+                <ThemedText style={screenStyles.activityName}>{driver.full_name || 'Driver'}</ThemedText>
+                <ThemedText style={screenStyles.activityMeta}>{driver.queue_status === 'SERVING' ? 'On Trip' : driver.queue_status === 'WAITING' ? `${driver.queue_position === 1 ? 'Next in Line' : 'Waiting'} - Position #${driver.queue_position ?? '?'}` : 'Not in Queue'}</ThemedText>
+                <ThemedText style={screenStyles.activityMeta}>Plate: {driver.unit || '—'}</ThemedText>
               </View>
               <ThemedText style={[screenStyles.dutyBadge, { color: dutyColor }]}>{dutyLabel}</ThemedText>
             </View>
@@ -529,21 +530,21 @@ const screenStyles = StyleSheet.create({
   eyebrow: { color: '#93C5FD', fontSize: 10, fontWeight: '800', letterSpacing: 2 },
   welcome: { color: '#F8FAFC', fontSize: 22, fontWeight: '800', marginTop: 6 },
   orgName: { color: '#CBD5E1', fontSize: 12, marginTop: 4 },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 14 },
-  statCard: { width: '48%', backgroundColor: '#FFF', borderRadius: 16, borderTopWidth: 4, padding: 14, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2 },
+  statsGrid: { gap: 10, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 14 },
+  statCard: { flexGrow: 1, flexBasis: 140, minWidth: 0, backgroundColor: '#FFF', borderRadius: 16, borderTopWidth: 4, padding: 14, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2 },
   cardLabel: { color: '#64748B', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   statValue: { color: '#0F172A', fontSize: 22, fontWeight: '800', marginTop: 8 },
   dataStatus: { color: '#64748B', fontSize: 11, marginTop: -4, marginBottom: 12 },
   dataHint: { color: '#64748B', fontSize: 12, lineHeight: 18, paddingTop: 2 },
   scheduleCard: { backgroundColor: '#FFF', borderRadius: 18, padding: 16, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2, marginBottom: 14 },
-  eventHeadingCopy: { flex: 1, gap: 4 },
+  eventHeadingCopy: { flexGrow: 1, flexBasis: 180, minWidth: 0, gap: 4 },
   inputLabel: { color: '#334155', fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 },
   eventInput: { minHeight: 46, borderWidth: 1, borderColor: '#DCE4EE', borderRadius: 12, backgroundColor: '#F8FAFC', paddingHorizontal: 12, paddingVertical: 10, color: '#0F172A', fontSize: 14 },
   descriptionInput: { minHeight: 72, textAlignVertical: 'top' },
-  eventFieldRow: { flexDirection: 'row', gap: 10 },
-  eventFieldHalf: { flex: 1 },
+  eventFieldRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  eventFieldHalf: { flexGrow: 1, flexBasis: 180, minWidth: 0 },
   eventError: { color: '#B91C1C', fontSize: 12, lineHeight: 18, marginTop: 10 },
-  eventActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
+  eventActions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
   saveEventButton: { minHeight: 42, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 16, borderRadius: 12, backgroundColor: '#1D4ED8' },
   saveEventText: { color: '#FFF', fontSize: 13, fontWeight: '800' },
   cancelButton: { minHeight: 42, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 14, borderRadius: 12, backgroundColor: '#EFF3F8' },
@@ -562,7 +563,7 @@ const screenStyles = StyleSheet.create({
   queueCard: { backgroundColor: '#FFF', borderRadius: 18, padding: 16, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10, elevation: 2, marginBottom: 14 },
   driverStatusRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
   dutyBadge: { fontSize: 11, fontWeight: '800', marginLeft: 10 },
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionHeading: { color: '#0F172A', fontSize: 16, fontWeight: '800' },
   viewAll: { color: '#2563EB', fontSize: 11, fontWeight: '800' },
   activityRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },

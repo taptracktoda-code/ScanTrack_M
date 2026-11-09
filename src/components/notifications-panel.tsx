@@ -1,10 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
 import { useNotifications } from '@/context/notifications';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 export function NotificationsPanel({ onClose }: { onClose: () => void }) {
-  const { notifications, loading, error, pushError, markAsRead, markAllAsRead, refresh } = useNotifications();
+  const insets = useSafeAreaInsets();
+  const { notifications, loading, error, pushError, markAsRead, markAllAsRead, refresh, openNotification } = useNotifications();
   const sortedNotifications = useMemo(
     () => [...notifications].sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime()),
     [notifications],
@@ -13,7 +15,7 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
   return (
     <View style={styles.overlay}>
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={styles.panel}>
+      <View style={[styles.panel, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 14, paddingRight: insets.right }]}>
         <View style={styles.header}>
           <View>
             <ThemedText style={styles.title}>Notifications</ThemedText>
@@ -40,6 +42,7 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
               key={String(notification.id)}
               onPress={() => {
                 if (!notification.is_read) void markAsRead(String(notification.id));
+                openNotification(notification.data);
               }}
               style={({ pressed }) => [styles.item, !notification.is_read && styles.unreadItem, pressed && styles.pressed]}
             >
@@ -78,7 +81,7 @@ const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFill, zIndex: 50, flexDirection: 'row', justifyContent: 'flex-end', backgroundColor: 'rgba(15, 23, 42, 0.28)' },
   backdrop: { ...StyleSheet.absoluteFill },
   panel: { width: '92%', maxWidth: 440, height: '100%', backgroundColor: '#FFF', paddingTop: 20, paddingBottom: 14, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 18, elevation: 15 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  header: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   title: { color: '#14212B', fontSize: 20, fontWeight: '800' },
   subtitle: { color: '#64748B', fontSize: 11, marginTop: 3 },
   closeButton: { paddingVertical: 6, paddingHorizontal: 10 },

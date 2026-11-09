@@ -2,6 +2,9 @@
 
 ## Tap Track API
 
+For the **ScanTrack** installed name and a shareable **ScanTrack.apk**, follow
+[the Android APK build and download commands](BUILD-APK.md).
+
 Set `EXPO_PUBLIC_API_URL` in `.env` to the Laravel API URL when it is hosted
 on a separate machine, for example `http://192.168.1.10:8000/api`. The app adds
 `/api` when the URL points to the host root and preserves it when already present.
@@ -23,7 +26,7 @@ driver status; Active counts drivers whose status is Active. Waiting counts
 `WAITING` queue entries, and On trip reflects `SERVING` entries (the backend
 does not currently maintain a separate trip status). `EXPO_PUBLIC_MANAGER_DASHBOARD_ENDPOINT`
 can override this endpoint if necessary. The manager screen refreshes it every
-15 seconds while focused. It accepts a response
+5 seconds while focused. It accepts a response
 containing `summary` fields `total_drivers`, `active_drivers`, `waiting_drivers`,
 `on_trip`, and optional `recent_activity`. The authenticated `/user` response
 supplies the manager's TODA assignment/name (for example `toda_name` or
@@ -46,6 +49,45 @@ driver account lists are loaded from the backend rather than a device-wide
 cache.
 
 ## Manager-created driver accounts
+
+Dashboard statistic cards open the existing Driver Management list on the Add
+Driver route using `status=all`, `active`, `waiting`, or `on_trip`. Counts and
+search results use the same deduplicated `/manager/drivers` records, including
+all Laravel pages when pagination metadata is returned. Both screens poll every
+5 seconds while focused. Account status `active` defines Active Drivers;
+dispatch status `WAITING` defines Waiting and `SERVING` defines On Trip.
+To support dispatch filtering, the existing Laravel driver list must expose
+each driver's **current** `queue_status` as `WAITING`, `SERVING`, or `null`
+(no current queue entry). Historical queue entries must not be used. If this
+field is omitted, queue cards and filters explicitly report unavailable data.
+This repository contains only the Expo client; the separate Laravel API must
+enforce Manager authorization and TODA scoping on every page of the response.
+
+Manager QR scans use the existing `/manager/qr/scan` route with
+`queue_action: join` (the default) or `exit`. Join records QR attendance and
+creates a WAITING entry in the existing `organization_queue_entries` table in
+one transaction. Repeated join scans are rejected without toggling attendance.
+Use **Record exit** to check out and cancel a waiting entry; a driver on a trip
+must complete that trip first. Admin attendance scans retain their existing
+entry/exit behavior.
+
+`/driver/dashboard` returns a `queue` snapshot with `status`, `position`,
+`waiting_count`, `queue_number`, `entry_id`, and `is_next`. Position is the live
+FIFO rank among WAITING drivers, not the permanent queue ticket number or a
+rank inferred from attendance. Position 1 is displayed as Next in Line;
+SERVING is On Trip. Trip creation moves the next driver's entry to SERVING;
+trip completion closes it as COMPLETED without rejoining the queue. An
+explicit new QR join scan is required to join again. The confirmed backend is
+`C:\Users\Andrie\Desktop\webappreviveeeee`; its missing `/manager/qr/scan`
+route now registers the existing controller. No duplicate queue endpoints or
+tables are needed. Existing queue migrations must already be applied in Laravel.
+
+Driver and Manager dashboards poll every five seconds while focused and
+refresh on app foreground return. Local scan/trip changes trigger refreshes
+in the same app session; other devices synchronize on the next poll. A failed
+or incomplete scan response never confirms queue registration, and an older
+dashboard request cannot overwrite a more recent response. See `QUEUE-FIX.md`
+for the backend changes and validation results.
 
 The Manager's **Add Driver** screen creates accounts directly with authenticated
 `POST /manager/drivers` and loads the assigned organization's accounts from
@@ -100,14 +142,14 @@ Apply the Laravel database migration before using these endpoints.
 ## Live driver and Manager notifications
 
 The mobile app registers an Expo push token for each signed-in Driver or Manager.
-The Laravel API stores notifications in the authenticated account and sends Expo
-pushes for terminal QR scans, queue calls, trip updates, and Manager-created
-Driver accounts. Notifications appear in the system tray while the app is
-backgrounded and update the in-app list while it is open. The app keeps a
-60-second foreground refresh as a fallback.
+With a compatible backend, notifications appear in the system tray while the
+app is backgrounded and update the in-app list while it is open. The app keeps
+a 60-second foreground refresh as a fallback.
 
-To enable delivery, deploy the matching `ScanTrack_W` backend changes and run
-`php artisan migrate --force`. For Android Firebase setup:
+The confirmed backend is `webappreviveeeee`. Push delivery separately requires
+notification routes, storage, and server-side dispatch in that backend; this
+queue fix uses polling and does not install push-notification endpoints.
+For Android Firebase setup:
 
 1. In Firebase, register an Android app with package ID
    `com.dingsss.TapTrackDriverApp` and download its `google-services.json`.

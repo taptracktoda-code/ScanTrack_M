@@ -53,6 +53,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   header: {
+    flexWrap: 'wrap',
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: Spacing.one,

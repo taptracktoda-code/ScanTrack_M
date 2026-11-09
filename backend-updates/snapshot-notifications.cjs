@@ -1,0 +1,11 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const relative = 'app/Services/MobileNotificationService.php';
+const baselinePath = path.join(__dirname, 'baseline.json');
+const baseline = JSON.parse(fs.readFileSync(baselinePath));
+if (baseline[relative]) throw new Error('Already snapshotted');
+const buffer = fs.readFileSync(path.resolve(__dirname, '../../webappreviveeeee', relative));
+baseline[relative] = crypto.createHash('sha256').update(buffer).digest('hex');
+fs.writeFileSync(path.join(__dirname, relative), buffer.toString('utf8').replaceAll('\r\n', '\n'));
+fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2));

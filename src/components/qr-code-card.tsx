@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { ThemedText } from './themed-text';
 
 export function QrCodeCard({ value, label, size = 180 }: { value?: string; label?: string; size?: number }) {
+  const [availableWidth, setAvailableWidth] = useState(0);
+  const qrSize = Math.min(size, Math.max(0, availableWidth - 34));
   return (
     <View style={styles.card}>
       <ThemedText style={styles.label}>{label || 'QR Code'}</ThemedText>
       {value ? (
         <>
-          <View style={styles.qrWrap}>
-            <QRCode value={value} size={size} backgroundColor="white" color="#14212B" />
+          <View style={styles.qrArea} onLayout={({ nativeEvent }) => setAvailableWidth(nativeEvent.layout.width)}>
+            {qrSize > 0 ? <View style={styles.qrWrap}>
+              <QRCode value={value} size={qrSize} backgroundColor="white" color="#14212B" />
+            </View> : null}
           </View>
           <ThemedText style={styles.value}>{value}</ThemedText>
         </>
@@ -30,11 +34,13 @@ const styles = StyleSheet.create({
     borderColor: '#E5EBF3',
   },
   label: {
+    textAlign: 'center',
     color: '#172A43',
     fontSize: 15,
     fontWeight: '800',
     marginBottom: 12,
   },
+  qrArea: { alignSelf: 'stretch', alignItems: 'center' },
   qrWrap: {
     backgroundColor: '#FFF',
     padding: 16,
@@ -43,6 +49,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5EBF3',
   },
   value: {
+    alignSelf: 'stretch',
     color: '#52647B',
     fontSize: 12,
     textAlign: 'center',

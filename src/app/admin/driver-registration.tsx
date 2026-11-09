@@ -1,11 +1,14 @@
 import { EmptyState } from '@/components';
+import { RemoveQueueDriver } from '@/components/remove-queue-driver';
 import { Page } from '@/components/page';
 import { ThemedText } from '@/components/themed-text';
+import { useQueueRefresh } from '@/hooks/use-queue-refresh';
 import { apiService } from '@/services/api';
 import type { DriverRegistrationRequest } from '@/types';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { filterManagerDrivers, getManagerDriverCounts, hasManagerQueueData, managerDriverFilters, normalizeManagerDriver, normalizeManagerDrivers, parseManagerDriverFilter, type ManagerDriverAccount } from '@/utils/managerDrivers';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 const emptyForm: DriverRegistrationRequest = {
   first_name: '',
@@ -19,17 +22,15 @@ const emptyForm: DriverRegistrationRequest = {
   address: '',
 };
 
-type ManagerDriverAccount = {
-  id: string;
-  full_name: string;
-  email: string;
-  phone_number: string;
-  license_number: string;
-  unit: string;
-  account_status: string;
-};
-
 export default function DriverRegistrationScreen() {
+  const router = useRouter();
+  const { status } = useLocalSearchParams<{ status?: string }>();
+  const selectedFilter = parseManagerDriverFilter(status);
+  const [search, setSearch] = useState('');
+  const [removingDriver, setRemovingDriver] = useState<ManagerDriverAccount | null>(null);
+  const [showRegistration, setShowRegistration] = useState(false);
+  const [hoveredFilter, setHoveredFilter] = useState<string | null>(null);
+  const requestId = useRef(0);
   const [form, setForm] = useState<DriverRegistrationRequest>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export default function DriverRegistrationScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadDrivers = useCallback(async (pull = false) => {
+    const currentRequest = ++requestId.current;
     if (pull) {
       setRefreshing(true);
     } else {
@@ -47,19 +49,21 @@ export default function DriverRegistrationScreen() {
 
     try {
       const remoteData = await apiService.getManagerDrivers();
-      setDrivers(normalizeManagerDrivers(remoteData));
+      if (currentRequest === requestId.current) setDrivers(normalizeManagerDrivers(remoteData));
     } catch (requestError: any) {
+      if (currentRequest !== requestId.current) return;
       setError(requestError?.message || 'Unable to load drivers for this organization.');
       setDrivers([]);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (currentRequest === requestId.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
-  useFocusEffect(useCallback(() => {
-    loadDrivers();
-  }, [loadDrivers]));
+  const refreshDrivers = useCallback(() => loadDrivers(true), [loadDrivers]);
+  useQueueRefresh(refreshDrivers);
 
   const updateField = (field: keyof DriverRegistrationRequest, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -106,9 +110,8 @@ export default function DriverRegistrationScreen() {
           result,
           ...current.filter((driver) => driver.id !== result.id),
         ]);
-      } else {
-        await loadDrivers(true);
       }
+      await loadDrivers(true);
       setForm(emptyForm);
       const temporaryPassword = getTemporaryPassword(response);
       Alert.alert(
@@ -127,10 +130,76 @@ export default function DriverRegistrationScreen() {
     }
   };
 
+  const counts = getManagerDriverCounts(drivers);
+  const filteredDrivers = filterManagerDrivers(drivers, selectedFilter, search);
+  const queueUnavailable = (selectedFilter === 'waiting' || selectedFilter === 'on_trip') && !hasManagerQueueData(drivers);
+
+  const driverList = (
+        <View style={styles.statusCard}>
+          <View style={styles.sectionRow}>
+            <ThemedText style={styles.sectionTitle}>Drivers in your organization</ThemedText>
+            <Pressable onPress={() => loadDrivers(true)}>
+              <ThemedText style={styles.linkText}>Refresh</ThemedText>
+            </Pressable>
+          </View>
+          <TextInput
+            accessibilityLabel="Search drivers"
+            placeholder="Search by name, email, phone, license or plate"
+            placeholderTextColor="#64748B"
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+            style={styles.input}
+          />
+          <View style={styles.filters}>
+            {managerDriverFilters.map((filter) => (
+              <Pressable
+                key={filter.value}
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedFilter === filter.value }}
+                onPress={() => router.setParams({ status: filter.value })}
+                onHoverIn={() => setHoveredFilter(filter.value)}
+                onHoverOut={() => setHoveredFilter(null)}
+                style={({ pressed }) => [styles.filter, selectedFilter === filter.value && styles.selectedFilter, hoveredFilter === filter.value && styles.hoveredFilter, pressed && styles.pressed]}
+              >
+                <ThemedText style={[styles.linkText, selectedFilter === filter.value && styles.selectedFilterText]}>{filter.label} ({counts[filter.value] ?? 'Unavailable'})</ThemedText>
+              </Pressable>
+            ))}
+          </View>
+          <ThemedText style={styles.helpText}>{queueUnavailable ? 'Queue status unavailable' : `Showing ${filteredDrivers.length} of ${counts[selectedFilter]} drivers`}. Refreshes every 5 seconds</ThemedText>
+          {queueUnavailable ? (
+            <EmptyState message="Current queue status is unavailable from the server. Try refreshing or contact your administrator." />
+          ) : filteredDrivers.length ? filteredDrivers.map((driver) => (
+            <View key={driver.id} style={styles.statusRow}>
+              <View style={styles.driverSummary}>
+                <ThemedText style={styles.driverName}>{driver.full_name}</ThemedText>
+                <ThemedText style={styles.driverMeta}>{driver.email}</ThemedText>
+                {driver.phone_number ? <ThemedText style={styles.driverMeta}>{driver.phone_number}</ThemedText> : null}
+                {driver.queue_status ? <ThemedText style={styles.driverMeta}>Dispatch: {driver.queue_status === 'serving' ? 'On Trip' : formatAccountStatus(driver.queue_status)}</ThemedText> : null}
+                {driver.queue_status === 'waiting' && driver.queue_position ? <ThemedText style={styles.driverMeta}>Queue position: #{driver.queue_position}</ThemedText> : null}
+                {driver.queue_status === 'waiting' && driver.queue_entry_id ? <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${driver.full_name} from queue`} onPress={() => setRemovingDriver(driver)} style={{ minHeight: 44, justifyContent: 'center' }}><ThemedText style={styles.error}>Remove from queue</ThemedText></Pressable> : null}
+                <ThemedText style={styles.driverMeta}>License: {driver.license_number || 'Not provided'}</ThemedText>
+                <ThemedText style={styles.driverMeta}>Unit: {driver.unit || 'Not assigned'}</ThemedText>
+              </View>
+              <View style={[styles.statusBadge, { backgroundColor: driver.account_status.toLowerCase() === 'active' ? '#DCFCE7' : '#FEF3C7' }]}>
+                <ThemedText style={[styles.statusBadgeText, { color: driver.account_status.toLowerCase() === 'active' ? '#166534' : '#B45309' }]}>
+                  {formatAccountStatus(driver.account_status)}
+                </ThemedText>
+              </View>
+            </View>
+          )) : <EmptyState message="No drivers match the selected status and search." icon="◌" />}
+        </View>
+  );
+
   return (
-    <Page title="Add Driver" loading={loading} error={error} onRetry={() => loadDrivers()} onRefresh={() => loadDrivers(true)} refreshing={refreshing}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.formCard}>
+    <Page title="Driver Management" loading={loading} error={error} onRetry={() => loadDrivers()} onRefresh={() => loadDrivers(true)} refreshing={refreshing}>
+      <View>
+        {driverList}
+        {removingDriver && <RemoveQueueDriver key={removingDriver.queue_entry_id} driver={removingDriver} onClose={() => setRemovingDriver(null)} />}
+        <Pressable accessibilityRole="button" onPress={() => setShowRegistration((value) => !value)} style={styles.registrationToggle}>
+          <ThemedText style={styles.linkText}>{showRegistration ? 'Hide registration form' : 'Create a driver account'}</ThemedText>
+        </Pressable>
+        {showRegistration && <View style={styles.formCard}>
           <ThemedText style={styles.sectionTitle}>Create a driver account</ThemedText>
           <ThemedText style={styles.helpText}>Enter the driver and vehicle details. The backend will assign the driver to your organization and generate and deliver a temporary password.</ThemedText>
 
@@ -150,32 +219,9 @@ export default function DriverRegistrationScreen() {
               <ThemedText style={styles.primaryButtonText}>{submitting ? 'Creating account...' : 'Create driver account'}</ThemedText>
             </Pressable>
           </View>
-        </View>
+        </View>}
 
-        <View style={styles.statusCard}>
-          <View style={styles.sectionRow}>
-            <ThemedText style={styles.sectionTitle}>Drivers in your organization</ThemedText>
-            <Pressable onPress={() => loadDrivers(true)}>
-              <ThemedText style={styles.linkText}>Refresh</ThemedText>
-            </Pressable>
-          </View>
-          {drivers.length ? drivers.map((driver) => (
-            <View key={driver.id} style={styles.statusRow}>
-              <View style={styles.driverSummary}>
-                <ThemedText style={styles.driverName}>{driver.full_name}</ThemedText>
-                <ThemedText style={styles.driverMeta}>{driver.email}</ThemedText>
-                <ThemedText style={styles.driverMeta}>License: {driver.license_number || 'Not provided'}</ThemedText>
-                <ThemedText style={styles.driverMeta}>Unit: {driver.unit || 'Not assigned'}</ThemedText>
-              </View>
-              <View style={[styles.statusBadge, { backgroundColor: driver.account_status.toLowerCase() === 'active' ? '#DCFCE7' : '#FEF3C7' }]}>
-                <ThemedText style={[styles.statusBadgeText, { color: driver.account_status.toLowerCase() === 'active' ? '#166534' : '#B45309' }]}>
-                  {formatAccountStatus(driver.account_status)}
-                </ThemedText>
-              </View>
-            </View>
-          )) : <EmptyState message="No driver accounts found for your organization." icon="◌" />}
-        </View>
-      </KeyboardAvoidingView>
+      </View>
     </Page>
   );
 }
@@ -217,32 +263,6 @@ function Field({
   );
 }
 
-function normalizeManagerDriver(value: any): ManagerDriverAccount | null {
-  const payload = value?.data?.data || value?.data || value || {};
-  const driver = payload.driver || payload;
-  const email = String(driver.email || '');
-  const name = String(driver.full_name || driver.name || [driver.first_name, driver.last_name].filter(Boolean).join(' '));
-  if (!email && !name && !driver.id) return null;
-
-  return {
-    id: String(driver.id ?? driver.driver_id ?? email),
-    full_name: name || 'Driver',
-    email,
-    phone_number: String(driver.contact_number || driver.phone_number || driver.phone || ''),
-    license_number: String(driver.license_number || ''),
-    unit: String(driver.plate_number || driver.unit || driver.vehicle_number || ''),
-    account_status: String(driver.account_status || driver.status || 'active'),
-  };
-}
-
-function normalizeManagerDrivers(value: any): ManagerDriverAccount[] {
-  const payload = value?.data?.data || value?.data || value || {};
-  const list = Array.isArray(payload) ? payload : payload.drivers || payload.data || [];
-  return Array.isArray(list)
-    ? list.map(normalizeManagerDriver).filter((driver): driver is ManagerDriverAccount => driver !== null)
-    : [];
-}
-
 function getTemporaryPassword(value: any): string | null {
   const payload = value?.data?.data || value?.data || value || {};
   const credentials = payload.credentials || payload.driver?.credentials || {};
@@ -255,6 +275,12 @@ function formatAccountStatus(value: string) {
 }
 
 const styles = StyleSheet.create({
+  registrationToggle: { marginBottom: 14, alignSelf: 'flex-start', paddingVertical: 10, cursor: 'pointer' },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  filter: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: '#DFE6ED', cursor: 'pointer' },
+  selectedFilter: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  selectedFilterText: { color: '#FFFFFF' },
+  hoveredFilter: { opacity: 0.8 },
   formCard: { backgroundColor: '#FFF', borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: '#E2E8F0' },
   sectionTitle: { color: '#0F172A', fontSize: 16, fontWeight: '800' },
   helpText: { color: '#64748B', fontSize: 12, lineHeight: 18, marginTop: 6, marginBottom: 16 },
@@ -269,10 +295,10 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.55 },
   statusCard: { backgroundColor: '#FFF', borderRadius: 18, padding: 18, borderWidth: 1, borderColor: '#E2E8F0' },
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  sectionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   linkText: { color: '#2563EB', fontSize: 12, fontWeight: '800' },
-  statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#EDF1F4' },
-  driverSummary: { flex: 1, paddingRight: 12 },
+  statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#EDF1F4' },
+  driverSummary: { flexGrow: 1, flexBasis: 140, minWidth: 0, paddingRight: 12 },
   driverName: { color: '#0F172A', fontSize: 14, fontWeight: '800' },
   driverMeta: { color: '#64748B', fontSize: 11, marginTop: 3 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8 },

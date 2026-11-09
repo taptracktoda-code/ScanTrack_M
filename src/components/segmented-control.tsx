@@ -49,6 +49,8 @@ const styles = StyleSheet.create({
   },
   segment: {
     flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
     paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center',
@@ -70,6 +72,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   segmentText: {
+    textAlign: 'center',
     fontSize: 12,
     fontWeight: '700',
     color: '#6C7A90',

@@ -1,5 +1,7 @@
 import { AttendanceCard, AttendanceRecord, DateSelector, EmptyState, SegmentedControl, SummaryCard } from '@/components';
 import { Page, styles, useApi } from '@/components/page';
+import { DailyManagerReport } from '@/components/daily-manager-report';
+import { useAuth } from '@/context/auth';
 import { ThemedText } from '@/components/themed-text';
 import { apiService } from '@/services/api';
 import { getDateString } from '@/utils/dateFormatter';
@@ -8,6 +10,21 @@ import { useCallback, useRef, useState } from 'react';
 import { View } from 'react-native';
 
 export default function AttendanceScreen() {
+  const { isManager } = useAuth();
+  return isManager ? <ManagerAttendanceScreen /> : <DriverAttendanceScreen />;
+}
+
+function ManagerAttendanceScreen() {
+  return <Page title="Attendance">
+    <View style={styles.card}>
+      <ThemedText style={[styles.sectionTitle, { marginTop: 0 }]}>My Attendance</ThemedText>
+      <ThemedText style={styles.muted}>Personal attendance is recorded for driver accounts. Your TODA&apos;s daily report is below.</ThemedText>
+    </View>
+    <DailyManagerReport />
+  </Page>;
+}
+
+function DriverAttendanceScreen() {
   const [mode, setMode] = useState(0); const [date, setDate] = useState(new Date());
   const request = useCallback(() => mode === 0 ? apiService.getAttendanceByDate(getDateString(date)) : Promise.resolve({}), [date, mode]); const daily = useApi<any>(request, {});
   const monthlyRequest = useCallback(() => mode === 1 ? apiService.getMonthlyAttendance(date.getFullYear(), date.getMonth() + 1) : Promise.resolve({}), [date, mode]); const monthly = useApi<any>(monthlyRequest, {});

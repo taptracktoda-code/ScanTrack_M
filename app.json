@@ -35,7 +35,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Tap Track to access your camera to scan driver QR codes.",
+          "cameraPermission": "Allow ScanTrack to access your camera to scan driver QR codes.",
           "barcodeScannerEnabled": true
         }
       ],
