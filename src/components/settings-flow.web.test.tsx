@@ -256,6 +256,22 @@ it('rejects oversized photos before submission', async () => {
   expect(container.textContent).not.toContain('large.jpg');
 });
 
+it('previews manager report photos without opening a download and uses refreshed attachment URLs', async () => {
+  jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+  jest.mocked(useAuth).mockReturnValue({ isManager: true } as any);
+  const file = { name: 'evidence.jpg', size: 1024, url: 'https://example.com/signed-photo' };
+  const data = { data: [{ id: 9, type: 'other', explanation: 'Concern', status: 'approved', created_at: '2026-11-09T00:00:00Z', attachments: [file] }] };
+  jest.mocked(useApi).mockReturnValue({ data, loading: false, error: null } as any);
+  await act(async () => root.render(<IssuesScreen />));
+  expect(container.querySelector('img')?.getAttribute('src')).toBe(file.url);
+  expect(container.textContent).not.toContain('Download evidence.jpg');
+  expect(Linking.openURL).not.toHaveBeenCalled();
+  file.url = 'https://example.com/renewed-photo';
+  await act(async () => root.render(<IssuesScreen />));
+  expect(container.querySelector('img')?.getAttribute('src')).toBe(file.url);
+  expect(container.textContent).not.toContain('Unable to load photo');
+});
+
 it('shows the backend attachment and recorded web review to the driver', async () => {
   jest.mocked(useAuth).mockReturnValue({ isManager: false } as any);
   jest.mocked(useApi).mockReturnValue({ data: { data: [{ id: 9, type: 'other', explanation: 'Concern', queue_entry_id: null, status: 'approved', created_at: '2026-11-09T00:00:00Z', decision_reason: 'Repair scheduled', manager_name: 'Web Manager', decided_at: '2026-11-09T01:00:00Z', attachments: [{ name: 'evidence.jpg', size: 1024, url: 'https://example.com/signed-download' }] }] }, loading: false, error: null } as any);

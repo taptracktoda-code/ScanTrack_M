@@ -1,4 +1,5 @@
 import { Page, styles, useApi } from '@/components/page';
+import { ReportAttachment } from '@/components/report-attachment';
 import { ThemedText } from '@/components/themed-text';
 import { useAuth } from '@/context/auth';
 import { useQueueRefresh } from '@/hooks/use-queue-refresh';
@@ -58,7 +59,7 @@ export default function IssuesScreen() {
       <ThemedText style={{ color: '#14243A', fontWeight: '800' }}>{issueTypeLabels[item.type] || item.type}</ThemedText>
       {isManager && <ThemedText>{item.driver_name}</ThemedText>}
       <ThemedText>{item.explanation}</ThemedText>
-      {item.attachments?.map((file, index) => <Pressable key={index} accessibilityRole="link" onPress={async () => {
+      {item.attachments?.map((file, index) => isManager ? <ReportAttachment key={index} file={file} /> : <Pressable key={index} accessibilityRole="link" onPress={async () => {
         try { await Linking.openURL(file.url); }
         catch { setActionError('Unable to open attachment. Refresh the reports to renew the download link and try again.'); }
       }} style={{ paddingVertical: 12 }}><ThemedText>Download {file.name} ({Math.ceil(file.size / 1024)} KB)</ThemedText></Pressable>)}
